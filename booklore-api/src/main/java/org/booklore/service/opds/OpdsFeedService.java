@@ -533,6 +533,9 @@ public class OpdsFeedService {
         if (meta.getIsbn10() != null) {
             feed.append("    <dc:identifier>urn:isbn:").append(escapeXml(meta.getIsbn10())).append("</dc:identifier>\n");
         }
+        if (meta.getAsin() != null) {
+            feed.append("    <dc:identifier>urn:asin:").append(escapeXml(meta.getAsin())).append("</dc:identifier>\n");
+        }
         // Series metadata
         if (meta.getSeriesName() != null) {
             feed.append("    <meta property=\"belongs-to-collection\" id=\"series\">")

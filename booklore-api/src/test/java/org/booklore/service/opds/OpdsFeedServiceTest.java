@@ -149,6 +149,7 @@ class OpdsFeedServiceTest {
                         .categories(Set.of("Fiction"))
                         .description("A book description")
                         .isbn10("1234567890")
+                        .asin("B00ZZZZZZZ")
                         .build())
                 .build();
 
@@ -160,6 +161,8 @@ class OpdsFeedServiceTest {
         assertThat(xml).contains("Book Title");
         assertThat(xml).contains("Author A");
         assertThat(xml).contains("Publisher X");
+        assertThat(xml).contains("urn:isbn:1234567890");
+        assertThat(xml).contains("urn:asin:B00ZZZZZZZ");
         assertThat(xml).contains("urn:booklore:book:10");
         assertThat(xml).contains("application/epub+zip");
         assertThat(xml).contains("</feed>");
@@ -205,6 +208,8 @@ class OpdsFeedServiceTest {
         String xml = opdsFeedService.generateRecentFeed(request);
         assertThat(xml).contains("Recent Book");
         assertThat(xml).contains("application/pdf");
+        assertThat(xml).doesNotContain("urn:isbn:");
+        assertThat(xml).doesNotContain("urn:asin:");
         assertThat(xml).contains("</feed>");
         verify(opdsBookService).getRecentBooksPage(TEST_USER_ID, 0, 50);
     }
