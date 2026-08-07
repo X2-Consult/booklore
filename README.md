@@ -16,8 +16,8 @@ Organize, read, annotate, sync across devices, and share, all without relying on
 ---
 
 > [!NOTE]
-> **This is a fork.** The original [booklore-app/booklore](https://github.com/booklore-app/booklore) project appears to have been
-> abandoned by its maintainer. This fork keeps it running and moving forward — see [What's Changed](#whats-changed-in-this-fork) below.
+> **This project started as a fork of [booklore-app/booklore](https://github.com/booklore-app/booklore),** which appears to have been
+> abandoned by its maintainer. It's now maintained here independently, moving forward on its own — see [What's Changed](#whats-changed-in-this-fork) below.
 
 ---
 
@@ -56,7 +56,7 @@ All you need is [Docker](https://docs.docker.com/get-docker/) and [Docker Compos
 
 | Registry | Image                              |
 |----------|------------------------------------|
-| GitHub Container Registry | `ghcr.io/booklore-app/booklore` |
+| GitHub Container Registry | `ghcr.io/x2-consult/booklore` |
 
 </details>
 
@@ -89,7 +89,7 @@ Create a `docker-compose.yml`:
 ```yaml
 services:
   booklore:
-    image: ghcr.io/booklore-app/booklore:latest
+    image: ghcr.io/x2-consult/booklore:latest
     container_name: booklore
     environment:
       - USER_ID=${APP_USER_ID}
@@ -189,16 +189,6 @@ BookLore is free, open source, and built with care. Here's how you can give back
 | ⭐ **Star this repo** | It's the simplest way to help others find this fork |
 | ☕ **Buy me a coffee** | [Ko-fi](https://ko-fi.com/xspader) — a one-time tip to fuel continued development |
 | 📢 **Tell someone** | Share BookLore with a friend, a subreddit, or your local book club |
-
----
-
-## 🌍 Translations
-
-BookLore is used by readers around the world. Help make it accessible in your language on [Weblate](https://hosted.weblate.org/engage/booklore/).
-
-<a href="https://hosted.weblate.org/engage/booklore/">
-  <img src="https://hosted.weblate.org/widget/booklore/multi-auto.svg?v=1" alt="Translation status" />
-</a>
 
 ---
 

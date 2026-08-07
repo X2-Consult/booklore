@@ -1,6 +1,6 @@
 services:
   booklore:
-    image: ghcr.io/booklore-app/booklore:latest
+    image: ghcr.io/x2-consult/booklore:latest
     container_name: booklore
     environment:
       - USER_ID=1000  # Modify this if the volume's ownership is not root
