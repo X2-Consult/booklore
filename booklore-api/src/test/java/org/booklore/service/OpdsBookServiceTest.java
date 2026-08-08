@@ -15,6 +15,7 @@ import org.booklore.repository.ShelfRepository;
 import org.booklore.repository.UserRepository;
 import org.booklore.service.library.LibraryService;
 import org.booklore.service.opds.OpdsBookService;
+import org.booklore.service.progress.ReadingProgressService;
 import org.booklore.service.restriction.ContentRestrictionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,7 @@ class OpdsBookServiceTest {
     @Mock private ShelfRepository shelfRepository;
     @Mock private LibraryService libraryService;
     @Mock private ContentRestrictionService contentRestrictionService;
+    @Mock private ReadingProgressService readingProgressService;
 
     @InjectMocks private OpdsBookService opdsBookService;
 
@@ -56,6 +58,8 @@ class OpdsBookServiceTest {
         mocks = MockitoAnnotations.openMocks(this);
         when(contentRestrictionService.applyRestrictions(anyList(), anyLong()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        // No-op by default; individual tests can override to assert enrichment behavior.
+        doNothing().when(readingProgressService).enrichBooksWithProgress(anyList(), any());
     }
 
     @AfterEach
@@ -805,6 +809,45 @@ class OpdsBookServiceTest {
 
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent()).extracting(Book::getId).containsExactly(1L, 3L);
+    }
+
+    @Test
+    void getContinueReadingPage_throwsWhenUnauthenticated() {
+        assertThatThrownBy(() -> opdsBookService.getContinueReadingPage(null, 0, 10))
+                .isInstanceOf(org.booklore.exception.APIException.class);
+    }
+
+    @Test
+    void getContinueReadingPage_nonAdmin_scopesToAssignedLibraries() {
+        OpdsUserDetails details = v2UserDetails(2L, false, Set.of(1L));
+
+        BookEntity bookEntity = mock(BookEntity.class);
+        when(bookEntity.getId()).thenReturn(7L);
+        Book book = Book.builder().id(7L).build();
+        when(bookMapper.toBook(bookEntity)).thenReturn(book);
+
+        when(readingProgressService.findContinueReadingBookIds(eq(2L), eq(Set.of(1L)), any()))
+                .thenReturn(new PageImpl<>(List.of(7L)));
+        when(bookOpdsRepository.findAllWithMetadataByIds(anyList())).thenReturn(List.of(bookEntity));
+
+        Page<Book> result = opdsBookService.getContinueReadingPage(details.getOpdsUserV2().getUserId(), 0, 10);
+
+        assertThat(result.getContent()).extracting(Book::getId).containsExactly(7L);
+        verify(readingProgressService, never()).findContinueReadingBookIds(anyLong(), any());
+        verify(readingProgressService).enrichBooksWithProgress(anyList(), eq(2L));
+    }
+
+    @Test
+    void getContinueReadingPage_admin_usesUnscopedQuery() {
+        OpdsUserDetails details = v2UserDetails(1L, true, Set.of());
+
+        when(readingProgressService.findContinueReadingBookIds(eq(1L), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(Page.empty());
+
+        Page<Book> result = opdsBookService.getContinueReadingPage(details.getOpdsUserV2().getUserId(), 0, 10);
+
+        assertThat(result.getContent()).isEmpty();
+        verify(readingProgressService, never()).findContinueReadingBookIds(anyLong(), anySet(), any());
     }
 
 }

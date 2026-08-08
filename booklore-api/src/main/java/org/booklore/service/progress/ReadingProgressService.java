@@ -22,6 +22,8 @@ import org.booklore.service.hardcover.HardcoverSyncService;
 import org.booklore.service.kobo.KoboReadingStateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +39,7 @@ public class ReadingProgressService {
 
     private static final float READING_THRESHOLD = 0.1f;
     private static final float COMPLETED_THRESHOLD = 99.5f;
+    private static final List<ReadStatus> CONTINUE_READING_STATUSES = List.of(ReadStatus.READING, ReadStatus.RE_READING);
 
     private final UserBookProgressRepository userBookProgressRepository;
     private final UserBookFileProgressRepository userBookFileProgressRepository;
@@ -105,6 +108,41 @@ public class ReadingProgressService {
                 book.setLastReadTime(fileProgress.getLastReadTime());
             }
         }
+    }
+
+    /**
+     * Batch-attaches the given user's reading progress/status onto each Book DTO in place.
+     * Used by listing endpoints (e.g. OPDS feeds) that build Book DTOs directly from
+     * BookMapper without going through the normal per-user enrichment path.
+     */
+    public void enrichBooksWithProgress(List<Book> books, Long userId) {
+        if (userId == null || books == null || books.isEmpty()) {
+            return;
+        }
+
+        Set<Long> bookIds = books.stream().map(Book::getId).collect(Collectors.toSet());
+        Map<Long, UserBookProgressEntity> progressByBookId = fetchUserProgress(userId, bookIds);
+        Map<Long, UserBookFileProgressEntity> fileProgressByBookId = fetchUserFileProgress(userId, bookIds);
+
+        for (Book book : books) {
+            UserBookProgressEntity progress = progressByBookId.get(book.getId());
+            UserBookFileProgressEntity fileProgress = fileProgressByBookId.get(book.getId());
+            if (progress != null || fileProgress != null) {
+                enrichBookWithProgress(book, progress, fileProgress);
+            }
+        }
+    }
+
+    /**
+     * Page of book IDs the user is currently reading (or re-reading), most recently read first.
+     * Used to power a "Continue Reading" feed.
+     */
+    public Page<Long> findContinueReadingBookIds(Long userId, Pageable pageable) {
+        return userBookProgressRepository.findContinueReadingBookIds(userId, CONTINUE_READING_STATUSES, pageable);
+    }
+
+    public Page<Long> findContinueReadingBookIds(Long userId, Set<Long> libraryIds, Pageable pageable) {
+        return userBookProgressRepository.findContinueReadingBookIdsByLibraryIds(userId, CONTINUE_READING_STATUSES, libraryIds, pageable);
     }
 
     private void setBookProgress(Book book, UserBookProgressEntity progress) {

@@ -152,6 +152,16 @@ public class OpdsController {
                 .body(feed);
     }
 
+    @Operation(summary = "Get continue reading feed", description = "Retrieve the OPDS feed for books the user is currently reading.")
+    @ApiResponse(responseCode = "200", description = "Continue reading feed returned successfully")
+    @GetMapping(value = "/continue-reading", produces = OPDS_ACQUISITION_MEDIA_TYPE)
+    public ResponseEntity<String> getContinueReadingFeed(@Parameter(hidden = true) HttpServletRequest request) {
+        String feed = opdsFeedService.generateContinueReadingFeed(request);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(OPDS_ACQUISITION_MEDIA_TYPE))
+                .body(feed);
+    }
+
     @Operation(summary = "Get surprise feed", description = "Retrieve the OPDS feed for surprise/random books.")
     @ApiResponse(responseCode = "200", description = "Surprise feed returned successfully")
     @GetMapping(value = "/surprise", produces = OPDS_ACQUISITION_MEDIA_TYPE)

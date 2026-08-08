@@ -15,6 +15,7 @@ import org.booklore.repository.UserRepository;
 import org.booklore.repository.BookRepository;
 import org.booklore.util.BookUtils;
 import org.booklore.service.library.LibraryService;
+import org.booklore.service.progress.ReadingProgressService;
 import org.booklore.service.restriction.ContentRestrictionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class OpdsBookService {
     private final ShelfRepository shelfRepository;
     private final LibraryService libraryService;
     private final ContentRestrictionService contentRestrictionService;
+    private final ReadingProgressService readingProgressService;
 
     public List<Library> getAccessibleLibraries(Long userId) {
         if (userId == null) {
@@ -87,7 +89,9 @@ public class OpdsBookService {
             Page<Book> books = query != null && !query.isBlank()
                     ? searchByMetadataInShelvesPageInternal(BookUtils.normalizeForSearch(query), shelfIds, page, size, userId)
                     : getBooksByShelfIdsPageInternal(shelfIds, page, size, userId);
-            return applyBookFilters(books, userId);
+            Page<Book> result = applyBookFilters(books, userId);
+            readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+            return result;
         }
 
         if (libraryId != null) {
@@ -95,19 +99,25 @@ public class OpdsBookService {
             Page<Book> books = query != null && !query.isBlank()
                     ? searchByMetadataInLibrariesPageInternal(BookUtils.normalizeForSearch(query), Set.of(libraryId), page, size, userId)
                     : getBooksByLibraryIdsPageInternal(Set.of(libraryId), page, size, userId);
-            return applyBookFilters(books, userId);
+            Page<Book> result = applyBookFilters(books, userId);
+            readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+            return result;
         }
 
         if (isAdmin) {
-            return query != null && !query.isBlank()
+            Page<Book> result = query != null && !query.isBlank()
                     ? searchByMetadataPageInternal(BookUtils.normalizeForSearch(query), page, size, null)
                     : getAllBooksPageInternal(page, size, null);
+            readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+            return result;
         }
 
         Page<Book> books = query != null && !query.isBlank()
                 ? searchByMetadataInLibrariesPageInternal(BookUtils.normalizeForSearch(query), userLibraryIds, page, size, userId)
                 : getBooksByLibraryIdsPageInternal(userLibraryIds, page, size, userId);
-        return applyBookFilters(books, userId);
+        Page<Book> result = applyBookFilters(books, userId);
+        readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+        return result;
     }
 
     public Page<Book> getRecentBooksPage(Long userId, int page, int size) {
@@ -120,7 +130,9 @@ public class OpdsBookService {
         BookLoreUser user = bookLoreUserTransformer.toDTO(entity);
 
         if (user.getPermissions().isAdmin()) {
-            return getRecentBooksPageInternal(page, size, null);
+            Page<Book> result = getRecentBooksPageInternal(page, size, null);
+            readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+            return result;
         }
 
         Set<Long> libraryIds = user.getAssignedLibraries().stream()
@@ -128,7 +140,9 @@ public class OpdsBookService {
                 .collect(Collectors.toSet());
 
         Page<Book> books = getRecentBooksByLibraryIdsPageInternal(libraryIds, page, size, userId);
-        return applyBookFilters(books, userId);
+        Page<Book> result = applyBookFilters(books, userId);
+        readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+        return result;
     }
 
     public String getLibraryName(Long libraryId) {
@@ -172,7 +186,9 @@ public class OpdsBookService {
         if (userId != null) {
             books = contentRestrictionService.applyRestrictions(books, userId);
         }
-        return books.stream().map(bookMapper::toBook).toList();
+        List<Book> result = books.stream().map(bookMapper::toBook).toList();
+        readingProgressService.enrichBooksWithProgress(result, userId);
+        return result;
     }
 
     public List<String> getDistinctAuthors(Long userId) {
@@ -220,7 +236,9 @@ public class OpdsBookService {
                 return new PageImpl<>(List.of(), pageable, 0);
             }
             List<BookEntity> books = bookOpdsRepository.findAllWithFullMetadataByIds(idPage.getContent());
-            return createPageFromEntities(books, idPage, pageable, null);
+            Page<Book> result = createPageFromEntities(books, idPage, pageable, null);
+            readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+            return result;
         }
 
         Set<Long> libraryIds = user.getAssignedLibraries().stream()
@@ -234,7 +252,9 @@ public class OpdsBookService {
 
         List<BookEntity> books = bookOpdsRepository.findAllWithFullMetadataByIdsAndLibraryIds(idPage.getContent(), libraryIds);
         Page<Book> booksPage = createPageFromEntities(books, idPage, pageable, userId);
-        return applyBookFilters(booksPage, userId);
+        Page<Book> result = applyBookFilters(booksPage, userId);
+        readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+        return result;
     }
 
     public List<String> getDistinctSeries(Long userId) {
@@ -274,7 +294,9 @@ public class OpdsBookService {
                 return new PageImpl<>(List.of(), pageable, 0);
             }
             List<BookEntity> books = bookOpdsRepository.findAllWithFullMetadataByIds(idPage.getContent());
-            return createPageFromEntities(books, idPage, pageable, null);
+            Page<Book> result = createPageFromEntities(books, idPage, pageable, null);
+            readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+            return result;
         }
 
         Set<Long> libraryIds = user.getAssignedLibraries().stream()
@@ -288,7 +310,42 @@ public class OpdsBookService {
 
         List<BookEntity> books = bookOpdsRepository.findAllWithFullMetadataByIdsAndLibraryIds(idPage.getContent(), libraryIds);
         Page<Book> booksPage = createPageFromEntities(books, idPage, pageable, userId);
-        return applyBookFilters(booksPage, userId);
+        Page<Book> result = applyBookFilters(booksPage, userId);
+        readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+        return result;
+    }
+
+    /**
+     * Books the user is currently reading (or re-reading), most recently read first.
+     * Powers the OPDS "Continue Reading" feed.
+     */
+    public Page<Book> getContinueReadingPage(Long userId, int page, int size) {
+        if (userId == null) {
+            throw ApiError.FORBIDDEN.createException("Authentication required");
+        }
+
+        BookLoreUserEntity entity = userRepository.findById(userId)
+                .orElseThrow(() -> ApiError.USER_NOT_FOUND.createException(userId));
+        BookLoreUser user = bookLoreUserTransformer.toDTO(entity);
+        boolean isAdmin = user.getPermissions().isAdmin();
+        Pageable pageable = PageRequest.of(Math.max(page, 0), size);
+
+        Page<Long> idPage = isAdmin
+                ? readingProgressService.findContinueReadingBookIds(userId, pageable)
+                : readingProgressService.findContinueReadingBookIds(
+                        userId,
+                        user.getAssignedLibraries().stream().map(Library::getId).collect(Collectors.toSet()),
+                        pageable);
+
+        if (idPage.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<BookEntity> books = bookOpdsRepository.findAllWithMetadataByIds(idPage.getContent());
+        Page<Book> booksPage = createPageFromEntities(books, idPage, pageable, isAdmin ? null : userId);
+        Page<Book> result = applyBookFilters(booksPage, userId);
+        readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
+        return result;
     }
 
     private Page<Book> getAllBooksPageInternal(int page, int size, Long userId) {

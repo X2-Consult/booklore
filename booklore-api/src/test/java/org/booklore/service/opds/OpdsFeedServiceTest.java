@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.booklore.config.security.service.AuthenticationService;
 import org.booklore.config.security.userdetails.OpdsUserDetails;
 import org.booklore.model.dto.*;
+import org.booklore.model.dto.progress.EpubProgress;
+import org.booklore.model.dto.progress.PdfProgress;
 import org.booklore.model.entity.ShelfEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.model.enums.OpdsSortOrder;
@@ -60,6 +62,8 @@ class OpdsFeedServiceTest {
     void generateRootNavigation_shouldContainAllSections() {
         String xml = opdsFeedService.generateRootNavigation(request);
         assertThat(xml).contains("All Books");
+        assertThat(xml).contains("Continue Reading");
+        assertThat(xml).contains("/api/v1/opds/continue-reading");
         assertThat(xml).contains("Recently Added");
         assertThat(xml).contains("Libraries");
         assertThat(xml).contains("Shelves");
@@ -257,6 +261,97 @@ class OpdsFeedServiceTest {
 
         String xml = opdsFeedService.generateSurpriseFeed(request);
         assertThat(xml).contains("</feed>");
+    }
+
+    @Test
+    void generateContinueReadingFeed_shouldReturnFeedWithBooks() {
+        mockAuthenticatedUser();
+
+        when(request.getParameter("page")).thenReturn(null);
+        when(request.getParameter("size")).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/api/v1/opds/continue-reading");
+        when(request.getQueryString()).thenReturn(null);
+
+        Book book = Book.builder()
+                .id(13L)
+                .primaryFile(BookFile.builder().id(1L).bookType(BookFileType.EPUB).build())
+                .addedOn(FIXED_INSTANT)
+                .metadata(BookMetadata.builder().title("In Progress Book").build())
+                .epubProgress(EpubProgress.builder().percentage(42f).build())
+                .build();
+
+        Page<Book> page = new PageImpl<>(List.of(book), PageRequest.of(0, 50), 1);
+        when(opdsBookService.getContinueReadingPage(eq(TEST_USER_ID), eq(0), eq(50))).thenReturn(page);
+
+        String xml = opdsFeedService.generateContinueReadingFeed(request);
+        assertThat(xml).contains("Continue Reading");
+        assertThat(xml).contains("In Progress Book");
+        assertThat(xml).contains("◑ 42%");
+        assertThat(xml).contains("urn:booklore:book:13");
+        assertThat(xml).contains("</feed>");
+        verify(opdsBookService).getContinueReadingPage(TEST_USER_ID, 0, 50);
+    }
+
+    @Test
+    void generateContinueReadingFeed_shouldHandleEmptyPage() {
+        mockAuthenticatedUser();
+
+        when(request.getParameter(anyString())).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/api/v1/opds/continue-reading");
+        when(request.getQueryString()).thenReturn(null);
+
+        Page<Book> page = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 50), 0);
+        when(opdsBookService.getContinueReadingPage(any(), anyInt(), anyInt())).thenReturn(page);
+
+        String xml = opdsFeedService.generateContinueReadingFeed(request);
+        assertThat(xml).contains("</feed>");
+    }
+
+    @Test
+    void appendBookEntry_shouldOmitProgressSuffix_whenBookHasNoProgress() {
+        mockAuthenticatedUser();
+
+        when(request.getParameter(anyString())).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/api/v1/opds/recent");
+        when(request.getQueryString()).thenReturn(null);
+
+        Book book = Book.builder()
+                .id(14L)
+                .primaryFile(BookFile.builder().id(1L).bookType(BookFileType.EPUB).build())
+                .addedOn(FIXED_INSTANT)
+                .metadata(BookMetadata.builder().title("Untouched Book").build())
+                .build();
+
+        Page<Book> page = new PageImpl<>(List.of(book), PageRequest.of(0, 50), 1);
+        when(opdsBookService.getRecentBooksPage(any(), anyInt(), anyInt())).thenReturn(page);
+        when(opdsBookService.applySortOrder(any(), any())).thenReturn(page);
+
+        String xml = opdsFeedService.generateRecentFeed(request);
+        assertThat(xml).contains("<title>Untouched Book</title>");
+    }
+
+    @Test
+    void appendBookEntry_shouldUseFullyReadGlyph_atOneHundredPercent() {
+        mockAuthenticatedUser();
+
+        when(request.getParameter(anyString())).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/api/v1/opds/recent");
+        when(request.getQueryString()).thenReturn(null);
+
+        Book book = Book.builder()
+                .id(15L)
+                .primaryFile(BookFile.builder().id(1L).bookType(BookFileType.PDF).build())
+                .addedOn(FIXED_INSTANT)
+                .metadata(BookMetadata.builder().title("Finished Book").build())
+                .pdfProgress(PdfProgress.builder().percentage(100f).build())
+                .build();
+
+        Page<Book> page = new PageImpl<>(List.of(book), PageRequest.of(0, 50), 1);
+        when(opdsBookService.getRecentBooksPage(any(), anyInt(), anyInt())).thenReturn(page);
+        when(opdsBookService.applySortOrder(any(), any())).thenReturn(page);
+
+        String xml = opdsFeedService.generateRecentFeed(request);
+        assertThat(xml).contains("Finished Book ● 100%");
     }
 
     @Test

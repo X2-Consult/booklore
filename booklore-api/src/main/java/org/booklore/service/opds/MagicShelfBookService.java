@@ -16,6 +16,7 @@ import org.booklore.repository.BookRepository;
 import org.booklore.repository.MagicShelfRepository;
 import org.booklore.repository.UserRepository;
 import org.booklore.service.BookRuleEvaluatorService;
+import org.booklore.service.progress.ReadingProgressService;
 import org.booklore.service.restriction.ContentRestrictionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -42,6 +43,7 @@ public class MagicShelfBookService {
     private final BookRuleEvaluatorService ruleEvaluatorService;
     private final ContentRestrictionService contentRestrictionService;
     private final ObjectMapper objectMapper;
+    private final ReadingProgressService readingProgressService;
 
     public Page<Book> getBooksByMagicShelfId(Long userId, Long magicShelfId, int page, int size) {
         MagicShelfEntity shelf = validateMagicShelfAccess(userId, magicShelfId);
@@ -58,6 +60,7 @@ public class MagicShelfBookService {
                     .map(bookMapper::toBook)
                     .map(book -> filterBook(book, userId))
                     .toList();
+            readingProgressService.enrichBooksWithProgress(books, userId);
             return new PageImpl<>(books, pageable, booksPage.getTotalElements());
         } catch (Exception e) {
             log.error("Failed to parse or execute magic shelf rules", e);

@@ -57,6 +57,15 @@ public class OpdsFeedService {
                 """.formatted(now(), escapeXml("/api/v1/opds/catalog?page=1&size=" + DEFAULT_PAGE_SIZE)) +
                 """
                           <entry>
+                            <title>Continue Reading</title>
+                            <id>urn:booklore:catalog:continue-reading</id>
+                            <updated>%s</updated>
+                            <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+                            <content type="text">Books you're currently reading</content>
+                          </entry>
+                        """.formatted(now(), escapeXml("/api/v1/opds/continue-reading?page=1&size=" + DEFAULT_PAGE_SIZE)) +
+                """
+                          <entry>
                             <title>Recently Added</title>
                             <id>urn:booklore:catalog:recent</id>
                             <updated>%s</updated>
@@ -408,6 +417,35 @@ public class OpdsFeedService {
         return feed.toString();
     }
 
+    public String generateContinueReadingFeed(HttpServletRequest request) {
+        Long userId = getUserId();
+        int page = Math.max(1, parseLongParam(request, "page", 1L).intValue());
+        int size = Math.min(parseLongParam(request, "size", (long) DEFAULT_PAGE_SIZE).intValue(), MAX_PAGE_SIZE);
+
+        Page<Book> booksPage = opdsBookService.getContinueReadingPage(userId, page - 1, size);
+
+        var feed = new StringBuilder("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+                  <id>urn:booklore:catalog:continue-reading</id>
+                  <title>Continue Reading</title>
+                  <updated>%s</updated>
+                  <opensearch:totalResults>%d</opensearch:totalResults>
+                  <opensearch:startIndex>%d</opensearch:startIndex>
+                  <opensearch:itemsPerPage>%d</opensearch:itemsPerPage>
+                  <link rel="self" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+                  <link rel="start" href="/api/v1/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+                  <link rel="search" type="application/opensearchdescription+xml" title="Search" href="/api/v1/opds/search.opds"/>
+                """.formatted(now(), booksPage.getTotalElements(), ((page - 1) * size) + 1, size, escapeXml(buildCurrentUrl(request, page, size))));
+
+        appendPaginationLinks(feed, request, page, booksPage.getTotalPages(), size);
+
+        booksPage.getContent().forEach(book -> appendBookEntry(feed, book));
+
+        feed.append("</feed>");
+        return feed.toString();
+    }
+
     public String generateSurpriseFeed(HttpServletRequest request) {
         Long userId = getUserId();
         int count = 25;
@@ -495,7 +533,7 @@ public class OpdsFeedService {
                     <id>urn:booklore:book:%d</id>
                     <updated>%s</updated>
                 """.formatted(
-                escapeXml(book.getMetadata().getTitle()),
+                escapeXml(buildEntryTitle(book)),
                 book.getId(),
                 book.getAddedOn() != null ? book.getAddedOn() : now()
         ));
@@ -510,6 +548,47 @@ public class OpdsFeedService {
         appendLinks(feed, book);
 
         feed.append("  </entry>\n");
+    }
+
+    /**
+     * Builds the entry's display title, appending a compact progress glyph + percentage
+     * (e.g. "◑ 42%") when the requesting user has unfinished progress on the book. Plain
+     * OPDS/Atom clients render this as ordinary title text, so no extension support is
+     * required to see it - the same trick Kavita's OPDS feed uses.
+     */
+    private String buildEntryTitle(Book book) {
+        String title = book.getMetadata() != null && book.getMetadata().getTitle() != null
+                ? book.getMetadata().getTitle() : "";
+
+        Float percentage = resolveProgressPercent(book);
+        if (percentage == null || percentage <= 0f) {
+            return title;
+        }
+
+        return title + " " + progressGlyph(percentage) + " " + Math.round(percentage) + "%";
+    }
+
+    private Float resolveProgressPercent(Book book) {
+        if (book.getEpubProgress() != null && book.getEpubProgress().getPercentage() != null) {
+            return book.getEpubProgress().getPercentage();
+        }
+        if (book.getPdfProgress() != null && book.getPdfProgress().getPercentage() != null) {
+            return book.getPdfProgress().getPercentage();
+        }
+        if (book.getCbxProgress() != null && book.getCbxProgress().getPercentage() != null) {
+            return book.getCbxProgress().getPercentage();
+        }
+        if (book.getAudiobookProgress() != null && book.getAudiobookProgress().getPercentage() != null) {
+            return book.getAudiobookProgress().getPercentage();
+        }
+        return null;
+    }
+
+    private String progressGlyph(float percentage) {
+        if (percentage >= 99.5f) return "●"; // ● fully read
+        if (percentage > 50f) return "◕";    // ◕
+        if (percentage > 25f) return "◑";    // ◑
+        return "◔";                          // ◔
     }
 
     private void appendMetadata(StringBuilder feed, Book book) {

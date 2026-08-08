@@ -6,6 +6,9 @@ import org.booklore.model.dto.ProgressPercentDto;
 import org.booklore.model.dto.RatingDistributionDto;
 import org.booklore.model.dto.StatusDistributionDto;
 import org.booklore.model.entity.UserBookProgressEntity;
+import org.booklore.model.enums.ReadStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -196,4 +199,30 @@ public interface UserBookProgressRepository extends JpaRepository<UserBookProgre
             WHERE ubp.user.id = :userId
             """)
     List<ProgressPercentDto> findAllProgressPercentsByUser(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT ubp.book.id FROM UserBookProgressEntity ubp
+            WHERE ubp.user.id = :userId
+              AND ubp.readStatus IN :statuses
+              AND (ubp.book.deleted IS NULL OR ubp.book.deleted = false)
+            ORDER BY COALESCE(ubp.lastReadTime, ubp.readStatusModifiedTime) DESC
+            """)
+    Page<Long> findContinueReadingBookIds(
+            @Param("userId") Long userId,
+            @Param("statuses") List<ReadStatus> statuses,
+            Pageable pageable);
+
+    @Query("""
+            SELECT ubp.book.id FROM UserBookProgressEntity ubp
+            WHERE ubp.user.id = :userId
+              AND ubp.readStatus IN :statuses
+              AND ubp.book.library.id IN :libraryIds
+              AND (ubp.book.deleted IS NULL OR ubp.book.deleted = false)
+            ORDER BY COALESCE(ubp.lastReadTime, ubp.readStatusModifiedTime) DESC
+            """)
+    Page<Long> findContinueReadingBookIdsByLibraryIds(
+            @Param("userId") Long userId,
+            @Param("statuses") List<ReadStatus> statuses,
+            @Param("libraryIds") Set<Long> libraryIds,
+            Pageable pageable);
 }
