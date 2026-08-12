@@ -24,6 +24,44 @@ SKIP_PULL=false
 
 log() { echo ">> $*"; }
 
+# pg_stat_statements is the standard tool for finding slow/expensive queries in Postgres,
+# but enabling it needs two steps: adding it to shared_preload_libraries (which only takes
+# effect after a Postgres restart) and CREATE EXTENSION in the target database. Idempotent -
+# on repeat deploys this is just a cheap SHOW + no-op CREATE EXTENSION IF NOT EXISTS; Postgres
+# is only restarted the one time it's actually missing.
+ensure_pg_stat_statements() {
+  log "Checking pg_stat_statements..."
+
+  local db_url db_name
+  db_url="$(grep -oP '(?<=^DATABASE_URL=jdbc:postgresql://).*' "$ENV_FILE" 2>/dev/null || true)"
+  db_name="${db_url##*/}"
+  db_name="${db_name:-booklore}"
+
+  local preloaded
+  preloaded="$(sudo -u postgres psql -tAc "SHOW shared_preload_libraries;" 2>/dev/null || true)"
+
+  if ! echo "$preloaded" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -qx "pg_stat_statements"; then
+    log "pg_stat_statements not preloaded - adding it and restarting Postgres..."
+    local merged
+    if [ -z "$preloaded" ]; then
+      merged="pg_stat_statements"
+    else
+      merged="${preloaded}, pg_stat_statements"
+    fi
+    sudo -u postgres psql -c "ALTER SYSTEM SET shared_preload_libraries = '${merged}';" >/dev/null
+    sudo systemctl restart postgresql
+
+    log "Waiting for Postgres to come back up..."
+    for _ in $(seq 1 30); do
+      sudo -u postgres psql -tAc "SELECT 1" >/dev/null 2>&1 && break
+      sleep 1
+    done
+  fi
+
+  sudo -u postgres psql -d "$db_name" -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;" >/dev/null
+  log "pg_stat_statements is enabled on database '${db_name}'."
+}
+
 # Resolve JAVA_HOME for the production build step below (gradlew bootJar).
 # The interactive shell running this script may not have SDKMAN's env
 # sourced (e.g. non-login shells, or it was only ever set up for the
@@ -58,6 +96,8 @@ cd "$REPO_DIR"
 INSTALL_MODE="$(grep -oP '(?<=^INSTALL_MODE=).*' "$ENV_FILE" 2>/dev/null || true)"
 INSTALL_MODE="${INSTALL_MODE:-dev}"
 log "Install mode: $INSTALL_MODE"
+
+ensure_pg_stat_statements
 
 LOCK_CHANGED=false
 if [ "$SKIP_PULL" = false ]; then

@@ -236,6 +236,10 @@ public interface ReadingSessionRepository extends JpaRepository<ReadingSessionEn
             @Param("month") int month,
             @Param("tzOffset") String tzOffset);
 
+    // The window filter compares raw start_time (already stored naive-UTC) directly against a
+    // naive-UTC cutoff. Do not shift start_time into :tzOffset local time here like the
+    // year/week SELECT columns do - that would compare a local wall-clock timestamp against a
+    // UTC one, biasing the window boundary by up to the user's UTC offset.
     @Query(value = """
             SELECT EXTRACT(YEAR FROM (start_time AT TIME ZONE 'UTC') AT TIME ZONE :tzOffset)::int as year,
                    EXTRACT(WEEK FROM (start_time AT TIME ZONE 'UTC') AT TIME ZONE :tzOffset)::int as week,
@@ -244,7 +248,7 @@ public interface ReadingSessionRepository extends JpaRepository<ReadingSessionEn
             FROM reading_sessions
             WHERE user_id = :userId
             AND book_type = 'AUDIOBOOK'
-            AND ((start_time AT TIME ZONE 'UTC') AT TIME ZONE :tzOffset) >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - make_interval(weeks => :weeks)
+            AND start_time >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - make_interval(weeks => :weeks)
             GROUP BY year, week
             ORDER BY year, week
             """, nativeQuery = true)
@@ -253,16 +257,22 @@ public interface ReadingSessionRepository extends JpaRepository<ReadingSessionEn
             @Param("weeks") int weeks,
             @Param("tzOffset") String tzOffset);
 
+    // book_file has no uniqueness constraint on (book_id, book_type), so a LEFT JOIN against it
+    // could fan a book's rows out (e.g. multiple audiobook files) and inflate SUM(rs.duration_seconds)
+    // by however many book_file rows matched. A correlated subquery keeps duration_seconds a
+    // single scalar per book instead of joining it into the aggregated row set.
     @Query(value = """
             SELECT rs.book_id as bookId,
                    COALESCE(bm.title, 'Unknown') as title,
                    COALESCE(MAX(rs.end_progress), 0) as maxProgress,
-                   COALESCE(MAX(bf.duration_seconds), 0) as totalDurationSeconds,
+                   COALESCE((
+                       SELECT MAX(bf.duration_seconds) FROM book_file bf
+                       WHERE bf.book_id = rs.book_id AND bf.book_type = 'AUDIOBOOK'
+                   ), 0) as totalDurationSeconds,
                    SUM(rs.duration_seconds) as listenedDurationSeconds
             FROM reading_sessions rs
             JOIN book b ON rs.book_id = b.id
             LEFT JOIN book_metadata bm ON bm.book_id = b.id
-            LEFT JOIN book_file bf ON bf.book_id = b.id AND bf.book_type = 'AUDIOBOOK'
             WHERE rs.user_id = :userId
             AND rs.book_type = 'AUDIOBOOK'
             GROUP BY rs.book_id, bm.title
