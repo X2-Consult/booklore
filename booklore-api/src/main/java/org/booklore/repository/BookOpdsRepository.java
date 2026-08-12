@@ -61,7 +61,18 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // BOOKS BY SHELF ID - Two Query Pattern
     // ============================================
 
-    @Query("SELECT DISTINCT b.id FROM BookEntity b JOIN b.shelves s WHERE s.id = :shelfId AND (b.deleted IS NULL OR b.deleted = false) ORDER BY b.addedOn DESC")
+    // book.shelves is @ManyToMany, so the join can genuinely fan a book into multiple rows -
+    // DISTINCT is needed. Deduping in an inner subquery (rather than "SELECT DISTINCT b.id
+    // ... ORDER BY b.addedOn") keeps the ORDER BY column out of a DISTINCT projection, which
+    // PostgreSQL requires; see the note on findBookIdsBySeriesName.
+    @Query("""
+            SELECT b.id FROM BookEntity b
+            WHERE b.id IN (
+                SELECT DISTINCT b2.id FROM BookEntity b2 JOIN b2.shelves s
+                WHERE s.id = :shelfId AND (b2.deleted IS NULL OR b2.deleted = false)
+            )
+            ORDER BY b.addedOn DESC
+            """)
     Page<Long> findBookIdsByShelfId(@Param("shelfId") Long shelfId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"metadata", "bookFiles", "shelves"})
@@ -72,8 +83,9 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // SEARCH BY METADATA - Two Query Pattern
     // ============================================
 
+    // book.metadata is a @OneToOne - see the DISTINCT/ORDER BY note on findBookIdsBySeriesName.
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
+            SELECT b.id FROM BookEntity b
             LEFT JOIN b.metadata m
             WHERE (b.deleted IS NULL OR b.deleted = false) AND (
                   m.searchText LIKE CONCAT('%', :text, '%')
@@ -91,7 +103,7 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // ============================================
 
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
+            SELECT b.id FROM BookEntity b
             LEFT JOIN b.metadata m
             WHERE (b.deleted IS NULL OR b.deleted = false)
               AND b.library.id IN :libraryIds
@@ -111,14 +123,17 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // ============================================
 
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
-            LEFT JOIN b.metadata m
-            JOIN b.shelves s
-            WHERE (b.deleted IS NULL OR b.deleted = false)
-              AND s.id IN :shelfIds
-              AND (
-                  m.searchText LIKE CONCAT('%', :text, '%')
-              )
+            SELECT b.id FROM BookEntity b
+            WHERE b.id IN (
+                SELECT DISTINCT b2.id FROM BookEntity b2
+                LEFT JOIN b2.metadata m
+                JOIN b2.shelves s
+                WHERE (b2.deleted IS NULL OR b2.deleted = false)
+                  AND s.id IN :shelfIds
+                  AND (
+                      m.searchText LIKE CONCAT('%', :text, '%')
+                  )
+            )
             ORDER BY b.addedOn DESC
             """)
     Page<Long> findBookIdsByMetadataSearchAndShelfIds(@Param("text") String text, @Param("shelfIds") Collection<Long> shelfIds, Pageable pageable);
@@ -131,7 +146,14 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // BOOKS BY SHELF IDs - Two Query Pattern
     // ============================================
 
-    @Query("SELECT DISTINCT b.id FROM BookEntity b JOIN b.shelves s WHERE s.id IN :shelfIds AND (b.deleted IS NULL OR b.deleted = false) ORDER BY b.addedOn DESC")
+    @Query("""
+            SELECT b.id FROM BookEntity b
+            WHERE b.id IN (
+                SELECT DISTINCT b2.id FROM BookEntity b2 JOIN b2.shelves s
+                WHERE s.id IN :shelfIds AND (b2.deleted IS NULL OR b2.deleted = false)
+            )
+            ORDER BY b.addedOn DESC
+            """)
     Page<Long> findBookIdsByShelfIds(@Param("shelfIds") Collection<Long> shelfIds, Pageable pageable);
 
     @EntityGraph(attributePaths = {"metadata", "bookFiles", "shelves"})
@@ -175,23 +197,31 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // BOOKS BY AUTHOR - Two Query Pattern
     // ============================================
 
+    // metadata.authors is @ManyToMany, so it can fan out - same subquery-dedup reasoning
+    // as findBookIdsByShelfId.
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
-            JOIN b.metadata m
-            JOIN m.authors a
-            WHERE a.name = :authorName
-              AND (b.deleted IS NULL OR b.deleted = false)
+            SELECT b.id FROM BookEntity b
+            WHERE b.id IN (
+                SELECT DISTINCT b2.id FROM BookEntity b2
+                JOIN b2.metadata m
+                JOIN m.authors a
+                WHERE a.name = :authorName
+                  AND (b2.deleted IS NULL OR b2.deleted = false)
+            )
             ORDER BY b.addedOn DESC
             """)
     Page<Long> findBookIdsByAuthorName(@Param("authorName") String authorName, Pageable pageable);
 
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
-            JOIN b.metadata m
-            JOIN m.authors a
-            WHERE a.name = :authorName
-              AND b.library.id IN :libraryIds
-              AND (b.deleted IS NULL OR b.deleted = false)
+            SELECT b.id FROM BookEntity b
+            WHERE b.id IN (
+                SELECT DISTINCT b2.id FROM BookEntity b2
+                JOIN b2.metadata m
+                JOIN m.authors a
+                WHERE a.name = :authorName
+                  AND b2.library.id IN :libraryIds
+                  AND (b2.deleted IS NULL OR b2.deleted = false)
+            )
             ORDER BY b.addedOn DESC
             """)
     Page<Long> findBookIdsByAuthorNameAndLibraryIds(@Param("authorName") String authorName, @Param("libraryIds") Collection<Long> libraryIds, Pageable pageable);
@@ -225,8 +255,12 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     // BOOKS BY SERIES - Two Query Pattern (sorted by series number)
     // ============================================
 
+    // book.metadata is a @OneToOne, so this join can never fan out a book into
+    // multiple rows - DISTINCT is unnecessary here and was actively harmful: on
+    // PostgreSQL, "SELECT DISTINCT x ... ORDER BY y" where y isn't in the SELECT
+    // list is a hard error (42601), which is what was 500-ing this endpoint.
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
+            SELECT b.id FROM BookEntity b
             JOIN b.metadata m
             WHERE m.seriesName = :seriesName
               AND (b.deleted IS NULL OR b.deleted = false)
@@ -235,7 +269,7 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     Page<Long> findBookIdsBySeriesName(@Param("seriesName") String seriesName, Pageable pageable);
 
     @Query("""
-            SELECT DISTINCT b.id FROM BookEntity b
+            SELECT b.id FROM BookEntity b
             JOIN b.metadata m
             WHERE m.seriesName = :seriesName
               AND b.library.id IN :libraryIds
