@@ -4,6 +4,7 @@ import {Subject} from 'rxjs';
 import {CdkDragDrop, DragDropModule} from '@angular/cdk/drag-drop';
 import {DialogModule} from 'primeng/dialog';
 import {ButtonModule} from 'primeng/button';
+import {PrimeTemplate} from 'primeng/api';
 import {UserService} from '../../../settings/user-management/user.service';
 import {takeUntil} from 'rxjs/operators';
 import {TranslocoDirective, TranslocoService} from '@jsverse/transloco';
@@ -63,6 +64,7 @@ import {UserChartConfig, UserChartConfigService} from './service/user-chart-conf
     ReadingDebtChartComponent,
     PublicationEraChartComponent,
     SessionArchetypesChartComponent,
+    PrimeTemplate,
     TranslocoDirective
   ],
   templateUrl: './user-stats.component.html',

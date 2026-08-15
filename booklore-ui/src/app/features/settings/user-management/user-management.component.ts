@@ -5,7 +5,7 @@ import {DynamicDialogRef} from 'primeng/dynamicdialog';
 import {TableModule} from 'primeng/table';
 import {LowerCasePipe, TitleCasePipe} from '@angular/common';
 import {User, UserService, UserUpdateRequest} from './user.service';
-import {MessageService} from 'primeng/api';
+import {MessageService, PrimeTemplate} from 'primeng/api';
 import {Checkbox} from 'primeng/checkbox';
 import {MultiSelect} from 'primeng/multiselect';
 import {Library} from '../../book/model/library.model';
@@ -41,6 +41,7 @@ interface UserWithEditing extends User {
     TitleCasePipe,
     Tooltip,
     ContentRestrictionsEditorComponent,
+    PrimeTemplate,
     TranslocoDirective,
     TranslocoPipe
   ],

@@ -1,7 +1,7 @@
 import {Component, ElementRef, inject, OnDestroy, OnInit, viewChild} from '@angular/core';
 import {Button} from 'primeng/button';
 
-import {MessageService} from 'primeng/api';
+import {MessageService, PrimeTemplate} from 'primeng/api';
 import {Select} from 'primeng/select';
 import {TableModule} from 'primeng/table';
 import {DEFAULT_VISIBLE_SORT_FIELDS, SortCriterion, User, UserService} from '../../user-management/user.service';
@@ -31,6 +31,7 @@ import {CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray} from 
     ToastModule,
     Tooltip,
     ToggleSwitch,
+    PrimeTemplate,
     TranslocoDirective,
     MultiSortPopoverComponent,
     Popover,

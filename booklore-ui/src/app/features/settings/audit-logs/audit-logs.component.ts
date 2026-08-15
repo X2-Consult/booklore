@@ -5,6 +5,7 @@ import {TableLazyLoadEvent, TableModule} from 'primeng/table';
 import {Select} from 'primeng/select';
 import {DatePicker} from 'primeng/datepicker';
 import {FormsModule} from '@angular/forms';
+import {PrimeTemplate} from 'primeng/api';
 import {TranslocoDirective} from '@jsverse/transloco';
 import {Subscription, interval} from 'rxjs';
 import {AuditLog, AuditLogService} from './audit-log.service';
@@ -40,7 +41,7 @@ interface UsernameOption {
 @Component({
   selector: 'app-audit-logs',
   standalone: true,
-  imports: [CommonModule, TableModule, Select, DatePicker, FormsModule, TranslocoDirective, TagComponent],
+  imports: [CommonModule, TableModule, Select, DatePicker, FormsModule, PrimeTemplate, TranslocoDirective, TagComponent],
   templateUrl: './audit-logs.component.html',
   styleUrl: './audit-logs.component.scss'
 })

@@ -3,7 +3,7 @@ import {FormsModule} from '@angular/forms';
 import {Button} from 'primeng/button';
 import {TableModule} from 'primeng/table';
 import {DynamicDialogConfig, DynamicDialogRef} from 'primeng/dynamicdialog';
-import {MessageService} from 'primeng/api';
+import {MessageService, PrimeTemplate} from 'primeng/api';
 import {filter, take, takeUntil} from 'rxjs/operators';
 import {Subject} from 'rxjs';
 
@@ -36,7 +36,7 @@ interface FilePreview {
 @Component({
   selector: 'app-file-mover-component',
   standalone: true,
-  imports: [Button, FormsModule, TableModule, Select],
+  imports: [Button, FormsModule, TableModule, Select, PrimeTemplate],
   templateUrl: './file-mover-component.html',
   styleUrl: './file-mover-component.scss'
 })

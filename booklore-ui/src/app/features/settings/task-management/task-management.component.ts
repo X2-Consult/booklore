@@ -2,7 +2,7 @@ import {Component, inject, OnDestroy, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {Button} from 'primeng/button';
 import {ProgressBar} from 'primeng/progressbar';
-import {MessageService} from 'primeng/api';
+import {MessageService, PrimeTemplate} from 'primeng/api';
 import {Select} from 'primeng/select';
 import {FormsModule} from '@angular/forms';
 import {
@@ -37,6 +37,7 @@ import {TranslocoDirective, TranslocoPipe, TranslocoService} from '@jsverse/tran
     ExternalDocLinkComponent,
     ToggleSwitch,
     Tooltip,
+    PrimeTemplate,
     TranslocoDirective,
     TranslocoPipe
   ],

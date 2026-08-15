@@ -3,11 +3,12 @@ import {CommonModule} from '@angular/common';
 import {ReadingSessionApiService, ReadingSessionResponse} from '../../../../../shared/service/reading-session-api.service';
 import {TableModule} from 'primeng/table';
 import {ProgressSpinnerModule} from 'primeng/progressspinner';
+import {PrimeTemplate} from 'primeng/api';
 import {TranslocoDirective, TranslocoService} from '@jsverse/transloco';
 @Component({
   selector: 'app-book-reading-sessions',
   standalone: true,
-  imports: [CommonModule, TableModule, ProgressSpinnerModule, TranslocoDirective],
+  imports: [CommonModule, TableModule, ProgressSpinnerModule, PrimeTemplate, TranslocoDirective],
   templateUrl: './book-reading-sessions.component.html',
   styleUrls: ['./book-reading-sessions.component.scss']
 })

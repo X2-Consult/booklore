@@ -10,7 +10,7 @@ import {UrlHelperService} from '../../../../../shared/service/url-helper.service
 import {Button} from 'primeng/button';
 import {BookService} from '../../../service/book.service';
 import {BookMetadataManageService} from '../../../service/book-metadata-manage.service';
-import {MessageService} from 'primeng/api';
+import {MessageService, PrimeTemplate} from 'primeng/api';
 import {RouterLink} from '@angular/router';
 import {filter, Subject} from 'rxjs';
 import {UserService} from '../../../../settings/user-management/user.service';
@@ -30,6 +30,7 @@ import {TranslocoDirective, TranslocoService} from '@jsverse/transloco';
     TooltipModule,
     NgClass,
     RouterLink,
+    PrimeTemplate,
     TranslocoDirective
   ],
   styleUrls: ['./book-table.component.scss'],

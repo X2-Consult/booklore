@@ -6,6 +6,7 @@ import {ChartConfiguration, ChartData, TooltipItem} from 'chart.js';
 import {BehaviorSubject, EMPTY, Observable, Subject} from 'rxjs';
 import {catchError, filter, first, switchMap, takeUntil} from 'rxjs/operators';
 import {Select} from 'primeng/select';
+import {PrimeTemplate} from 'primeng/api';
 import {LibraryFilterService} from '../../service/library-filter.service';
 import {BookService} from '../../../../../book/service/book.service';
 import {Book, ReadStatus} from '../../../../../book/model/book.model';
@@ -76,7 +77,7 @@ const READ_STATUS_ORDER: ReadStatus[] = [
 @Component({
   selector: 'app-top-items-chart',
   standalone: true,
-  imports: [CommonModule, FormsModule, BaseChartDirective, Select, TranslocoDirective],
+  imports: [CommonModule, FormsModule, BaseChartDirective, Select, PrimeTemplate, TranslocoDirective],
   templateUrl: './top-items-chart.component.html',
   styleUrls: ['./top-items-chart.component.scss']
 })

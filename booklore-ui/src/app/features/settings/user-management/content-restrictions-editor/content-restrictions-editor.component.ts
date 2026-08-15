@@ -3,7 +3,7 @@ import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {Button} from 'primeng/button';
 import {Select} from 'primeng/select';
-import {MessageService} from 'primeng/api';
+import {MessageService, PrimeTemplate} from 'primeng/api';
 import {Tooltip} from 'primeng/tooltip';
 import {
   AGE_RATING_OPTIONS,
@@ -27,6 +27,7 @@ import {TranslocoDirective, TranslocoPipe, TranslocoService} from '@jsverse/tran
     Button,
     Select,
     Tooltip,
+    PrimeTemplate,
     TranslocoDirective,
     TranslocoPipe
   ],
