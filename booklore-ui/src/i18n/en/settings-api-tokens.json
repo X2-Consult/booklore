@@ -1,0 +1,45 @@
+{
+  "title": "API Tokens",
+  "description": "Generate tokens for third-party apps to connect to your Booklore library. Unlike your login password, a token is always read-only plus reading-progress updates - it can never delete, edit, or upload anything, no matter what your account is otherwise permitted to do.",
+  "sectionTitle": "Your Tokens",
+  "sectionDesc": "Each token is tied to your account and can be revoked independently at any time.",
+  "addToken": "New Token",
+  "emptyTitle": "No API tokens yet",
+  "emptySubtitle": "Create one to connect a companion reading app.",
+  "created": "Created",
+  "lastUsed": "Last used",
+  "neverUsed": "Never used",
+  "revokeToken": "Revoke token",
+  "revokeHeader": "Revoke API Token",
+  "revokeConfirm": "Revoke \"{{name}}\"? Any app using it will immediately lose access.",
+  "revokeSuccess": "API token revoked",
+  "revokeError": "Failed to revoke API token. Please try again.",
+  "createSuccess": "API token created",
+  "createError": "Failed to create API token. Please try again.",
+  "loadError": "Failed to load API tokens. Please try again.",
+  "tokenCopied": "Token copied to clipboard",
+  "scope": {
+    "sectionTitle": "What a token can do",
+    "readAccess": "Read your full library - books, metadata, shelves, series, authors",
+    "downloads": "Download book files (if your account allows downloads)",
+    "progress": "Pull and update reading progress",
+    "noDelete": "Cannot delete books or libraries",
+    "noEdit": "Cannot edit metadata, upload, or manage libraries",
+    "noAccount": "Cannot change your password or account settings",
+    "note": "This applies no matter what permissions your account has - a token from an admin account still can't delete or edit anything."
+  },
+  "createDialog": {
+    "title": "New API Token",
+    "name": "Token Name",
+    "namePlaceholder": "e.g. My Phone, Reader App",
+    "nameHint": "A label to help you tell tokens apart later - not a secret.",
+    "create": "Create"
+  },
+  "createdDialog": {
+    "title": "Token Created",
+    "warning": "Copy this token now - for security, it won't be shown again.",
+    "tokenLabel": "API Token",
+    "copy": "Copy",
+    "done": "Done"
+  }
+}

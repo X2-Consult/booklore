@@ -6,6 +6,7 @@ import org.booklore.mapper.custom.BookLoreUserTransformer;
 import org.booklore.model.dto.BookLoreUser;
 import org.booklore.model.entity.BookLoreUserEntity;
 import org.booklore.repository.UserRepository;
+import org.booklore.service.ApiTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,6 +51,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (token == null) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // API tokens (blt_...) are handled entirely by ApiTokenAuthFilter, which runs
+        // before this filter. By the time a request gets here, it's either already
+        // authenticated (and this filter must not clobber that by treating a non-JWT
+        // token as an invalid one) or already rejected.
+        if (token.startsWith(ApiTokenService.TOKEN_PREFIX)) {
             chain.doFilter(request, response);
             return;
         }

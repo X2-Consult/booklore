@@ -1,0 +1,311 @@
+@use '../../../shared/styles/settings-shared' as settings;
+
+.main-container {
+  @include settings.settings-page-container;
+}
+
+@include settings.settings-page-header;
+
+.settings-title {
+  @include settings.settings-page-title;
+  margin-bottom: 0.75rem;
+}
+
+.settings-description {
+  @include settings.settings-page-description;
+}
+
+.settings-card {
+  @include settings.settings-card;
+}
+
+.section-header {
+  @include settings.settings-section-header;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  @media (max-width: 767px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    p-button {
+      align-self: flex-end;
+    }
+  }
+}
+
+.section-header-text {
+  flex: 1;
+}
+
+.section-title {
+  @include settings.settings-section-title;
+}
+
+.section-description {
+  @include settings.settings-section-description;
+}
+
+.section-body {
+  @include settings.settings-section-body;
+}
+
+// Empty state
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--p-text-muted-color);
+  background: color-mix(in srgb, var(--ground-background) 50%, var(--p-surface-800) 50%);
+  border-radius: 6px;
+
+  .pi {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .empty-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    color: var(--p-text-color);
+  }
+
+  .empty-subtitle {
+    font-size: settings.$settings-section-description-size;
+    margin: 0;
+  }
+}
+
+// Tokens list
+.tokens-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.token-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: color-mix(in srgb, var(--ground-background) 50%, var(--p-surface-800) 50%);
+  border: 1px solid var(--p-content-border-color);
+  border-left: 3px solid var(--p-primary-color);
+  border-radius: 6px;
+  padding: 0.875rem 1rem;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ground-background) 40%, var(--p-surface-800) 60%);
+  }
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+}
+
+.token-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.token-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.token-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.token-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--p-text-color);
+}
+
+.token-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: settings.$settings-description-size;
+  color: var(--p-text-muted-color);
+  flex-wrap: wrap;
+
+  .pi {
+    font-size: 0.875rem;
+  }
+
+  .meta-separator {
+    opacity: 0.5;
+  }
+
+  .never-used {
+    font-style: italic;
+  }
+}
+
+.token-actions {
+  display: flex;
+  gap: 0.375rem;
+  flex-shrink: 0;
+
+  @media (max-width: 600px) {
+    justify-content: flex-end;
+  }
+}
+
+// Scope card
+.scope-card {
+  .scope-list {
+    list-style: none;
+    margin: 0 0 1rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .scope-allowed,
+  .scope-blocked {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: settings.$settings-description-size;
+
+    .pi {
+      font-size: 0.75rem;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+  }
+
+  .scope-allowed {
+    color: var(--p-text-color);
+
+    .pi {
+      background: color-mix(in srgb, var(--p-green-500) 20%, transparent);
+      color: var(--p-green-400);
+    }
+  }
+
+  .scope-blocked {
+    color: var(--p-text-muted-color);
+
+    .pi {
+      background: color-mix(in srgb, var(--p-red-500) 15%, transparent);
+      color: var(--p-red-400);
+    }
+  }
+
+  .scope-note {
+    @include settings.settings-info-notice;
+    margin: 0;
+  }
+}
+
+// Dialog styles
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 600;
+    color: var(--p-text-color);
+    font-size: settings.$settings-section-description-size;
+  }
+
+  input {
+    width: 100%;
+    padding: 0.75rem;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--p-primary-color);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--p-primary-color) 20%, transparent);
+    }
+
+    &::placeholder {
+      color: var(--p-text-muted-color);
+    }
+  }
+
+  .form-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+    color: var(--p-text-muted-color);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin-top: 0.25rem;
+
+    .pi {
+      font-size: 0.625rem;
+      margin-top: 0.125rem;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.createdDialog-warning {
+  @include settings.settings-warning-notice;
+  margin: 0 0 1.25rem 0;
+}
+
+.token-reveal-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.token-reveal-input {
+  flex: 1;
+  width: 100%;
+  font-family: monospace;
+  font-size: settings.$settings-description-size;
+}

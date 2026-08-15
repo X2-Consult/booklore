@@ -13,6 +13,7 @@ import {FileNamingPatternComponent} from './file-naming-pattern/file-naming-patt
 import {TaskManagementComponent} from './task-management/task-management.component';
 import {AuditLogsComponent} from './audit-logs/audit-logs.component';
 import {OpdsSettings} from './opds-settings/opds-settings';
+import {ApiTokensSettings} from './api-tokens/api-tokens-settings';
 import {MetadataSettingsComponent} from './metadata-settings/metadata-settings-component';
 import {DeviceSettingsComponent} from './device-settings/device-settings-component';
 import {LibraryMetadataSettingsComponent} from './library-metadata-settings/library-metadata-settings.component';
@@ -32,6 +33,7 @@ export enum SettingsTab {
   ApplicationSettings = 'application',
   AuthenticationSettings = 'authentication',
   OpdsV2 = 'opds',
+  ApiTokens = 'api-tokens',
   Tasks = 'task',
   AuditLogs = 'audit-logs',
 }
@@ -54,6 +56,7 @@ export enum SettingsTab {
     DeviceSettingsComponent,
     FileNamingPatternComponent,
     OpdsSettings,
+    ApiTokensSettings,
     LibraryMetadataSettingsComponent,
     TaskManagementComponent,
     AuditLogsComponent,

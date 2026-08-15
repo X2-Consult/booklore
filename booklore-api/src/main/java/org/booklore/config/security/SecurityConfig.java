@@ -44,6 +44,7 @@ public class SecurityConfig {
     private static final Pattern ALLOWED = Pattern.compile("\\s*,\\s*");
     private final OpdsUserDetailsService opdsUserDetailsService;
     private final JwtAuthenticationFilter dualJwtAuthenticationFilter;
+    private final ApiTokenAuthFilter apiTokenAuthFilter;
     private final Environment env;
 
     private static final String[] COMMON_PUBLIC_ENDPOINTS = {
@@ -234,7 +235,11 @@ public class SecurityConfig {
                         .requestMatchers(publicEndpoints.toArray(new String[0])).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(dualJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Order matters: JwtAuthenticationFilter's position must be registered
+                // (relative to the standard UsernamePasswordAuthenticationFilter) before
+                // it can be used as an anchor for apiTokenAuthFilter below.
+                .addFilterBefore(dualJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(apiTokenAuthFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

@@ -12,6 +12,7 @@
     "tasks": "Tasks",
     "auditLogs": "Audit Logs",
     "opds": "OPDS",
+    "apiTokens": "API Tokens",
     "devices": "Devices"
   }
 }

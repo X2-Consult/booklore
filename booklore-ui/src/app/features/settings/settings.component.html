@@ -54,6 +54,9 @@
             <p-tab [value]="SettingsTab.OpdsV2">
               <i class="pi pi-globe"></i> {{ t('opds') }}
             </p-tab>
+            <p-tab [value]="SettingsTab.ApiTokens">
+              <i class="pi pi-key"></i> {{ t('apiTokens') }}
+            </p-tab>
             <p-tab [value]="SettingsTab.DeviceSettings">
               <i class="pi pi-mobile"></i> {{ t('devices') }}
             </p-tab>
@@ -131,6 +134,11 @@
             <p-tabpanel [value]="SettingsTab.OpdsV2">
               <ng-template #content>
                 <app-opds-settings></app-opds-settings>
+              </ng-template>
+            </p-tabpanel>
+            <p-tabpanel [value]="SettingsTab.ApiTokens">
+              <ng-template #content>
+                <app-api-tokens-settings></app-api-tokens-settings>
               </ng-template>
             </p-tabpanel>
             <p-tabpanel [value]="SettingsTab.DeviceSettings">

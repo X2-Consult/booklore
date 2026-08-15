@@ -1,0 +1,192 @@
+<ng-container *transloco="let t; prefix: 'settingsApiTokens'">
+<div class="main-container">
+  <div class="settings-header">
+    <h2 class="settings-title">
+      <i class="pi pi-key"></i>
+      {{ t('title') }}
+    </h2>
+    <p class="settings-description">
+      {{ t('description') }}
+    </p>
+  </div>
+
+  <div class="settings-card">
+    <div class="section-header">
+      <div class="section-header-row">
+        <div class="section-header-text">
+          <h3 class="section-title">
+            <i class="pi pi-shield"></i>
+            {{ t('sectionTitle') }}
+          </h3>
+          <p class="section-description">
+            {{ t('sectionDesc') }}
+          </p>
+        </div>
+        <p-button
+          icon="pi pi-plus"
+          [label]="t('addToken')"
+          severity="success"
+          size="small"
+          [outlined]="true"
+          (onClick)="showCreateDialog = true">
+        </p-button>
+      </div>
+    </div>
+
+    <div class="section-body">
+      @if (!loading && tokens.length === 0) {
+        <div class="empty-state">
+          <i class="pi pi-key"></i>
+          <p class="empty-title">{{ t('emptyTitle') }}</p>
+          <p class="empty-subtitle">{{ t('emptySubtitle') }}</p>
+        </div>
+      } @else {
+        <div class="tokens-list">
+          @for (token of tokens; track token.id) {
+            <div class="token-item">
+              <div class="token-info">
+                <div class="token-avatar">
+                  <i class="pi pi-key"></i>
+                </div>
+                <div class="token-details">
+                  <span class="token-name">{{ token.name }}</span>
+                  <div class="token-meta">
+                    <i class="pi pi-calendar"></i>
+                    <span>{{ t('created') }}: {{ token.createdAt | date:'medium' }}</span>
+                    @if (token.lastUsedAt) {
+                      <span class="meta-separator">&middot;</span>
+                      <i class="pi pi-clock"></i>
+                      <span>{{ t('lastUsed') }}: {{ token.lastUsedAt | date:'medium' }}</span>
+                    } @else {
+                      <span class="meta-separator">&middot;</span>
+                      <span class="never-used">{{ t('neverUsed') }}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+              <div class="token-actions">
+                <p-button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  size="small"
+                  [outlined]="true"
+                  [rounded]="true"
+                  (onClick)="confirmRevoke(token)"
+                  [pTooltip]="t('revokeToken')">
+                </p-button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="settings-card scope-card">
+    <div class="section-header">
+      <h3 class="section-title">
+        <i class="pi pi-info-circle"></i>
+        {{ t('scope.sectionTitle') }}
+      </h3>
+    </div>
+    <div class="section-body">
+      <ul class="scope-list">
+        <li class="scope-allowed"><i class="pi pi-check"></i> {{ t('scope.readAccess') }}</li>
+        <li class="scope-allowed"><i class="pi pi-check"></i> {{ t('scope.downloads') }}</li>
+        <li class="scope-allowed"><i class="pi pi-check"></i> {{ t('scope.progress') }}</li>
+        <li class="scope-blocked"><i class="pi pi-times"></i> {{ t('scope.noDelete') }}</li>
+        <li class="scope-blocked"><i class="pi pi-times"></i> {{ t('scope.noEdit') }}</li>
+        <li class="scope-blocked"><i class="pi pi-times"></i> {{ t('scope.noAccount') }}</li>
+      </ul>
+      <p class="scope-note"><i class="pi pi-info-circle"></i> {{ t('scope.note') }}</p>
+    </div>
+  </div>
+
+  <!-- Create token dialog -->
+  <p-dialog
+    [header]="t('createDialog.title')"
+    [(visible)]="showCreateDialog"
+    [modal]="true"
+    [style]="{width: '400px'}">
+    <div class="dialog-form">
+      <div class="form-field">
+        <label for="tokenName">{{ t('createDialog.name') }}</label>
+        <input
+          id="tokenName"
+          type="text"
+          pInputText
+          [(ngModel)]="newTokenName"
+          [placeholder]="t('createDialog.namePlaceholder')"/>
+        <small class="form-hint">
+          <i class="pi pi-info-circle"></i>
+          {{ t('createDialog.nameHint') }}
+        </small>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="dialog-actions">
+        <p-button
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          outlined="true"
+          (onClick)="cancelCreate()">
+        </p-button>
+        <p-button
+          [label]="t('createDialog.create')"
+          severity="success"
+          [disabled]="!newTokenName.trim()"
+          (onClick)="createToken()">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- One-time token reveal dialog -->
+  <p-dialog
+    [header]="t('createdDialog.title')"
+    [(visible)]="showCreatedDialog"
+    [modal]="true"
+    [closable]="false"
+    [style]="{width: '480px'}">
+    @if (createdToken) {
+      <div class="dialog-form">
+        <p class="createdDialog-warning">
+          <i class="pi pi-exclamation-triangle"></i>
+          {{ t('createdDialog.warning') }}
+        </p>
+        <div class="form-field">
+          <label for="createdTokenValue">{{ t('createdDialog.tokenLabel') }}</label>
+          <div class="token-reveal-row">
+            <input
+              id="createdTokenValue"
+              class="token-reveal-input"
+              type="text"
+              pInputText
+              [value]="createdToken.token"
+              readonly/>
+            <p-button
+              icon="pi pi-copy"
+              severity="info"
+              [outlined]="true"
+              size="small"
+              (onClick)="copyCreatedToken()"
+              [pTooltip]="t('createdDialog.copy')">
+            </p-button>
+          </div>
+        </div>
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <div class="dialog-actions">
+        <p-button
+          [label]="t('createdDialog.done')"
+          severity="success"
+          (onClick)="closeCreatedDialog()">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-confirmDialog></p-confirmDialog>
+</div>
+</ng-container>
