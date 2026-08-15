@@ -25,4 +25,6 @@ public class BookFile {
     private String extension;
     private String description;
     private Instant addedOn;
+    /** Partial-MD5 content hash, matching KOReader's own document-matching algorithm. */
+    private String currentHash;
 }

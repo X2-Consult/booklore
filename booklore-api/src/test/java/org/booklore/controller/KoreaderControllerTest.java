@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.time.Instant;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -72,9 +73,11 @@ class KoreaderControllerTest {
                 .device("dev")
                 .device_id("id")
                 .build();
-        doNothing().when(koreaderService).saveProgress("doc", progress);
+        Instant syncedAt = Instant.ofEpochSecond(1762209924L);
+        when(koreaderService.saveProgress("doc", progress)).thenReturn(syncedAt);
         ResponseEntity<?> resp = controller.updateProgress(progress);
         assertEquals(HttpStatus.OK, resp.getStatusCode());
-        assertEquals("progress updated", ((Map<?, ?>) resp.getBody()).get("status"));
+        assertEquals("doc", ((Map<?, ?>) resp.getBody()).get("document"));
+        assertEquals(1762209924L, ((Map<?, ?>) resp.getBody()).get("timestamp"));
     }
 }

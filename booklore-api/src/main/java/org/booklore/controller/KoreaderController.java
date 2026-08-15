@@ -14,6 +14,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -54,7 +56,11 @@ public class KoreaderController {
     @ApiResponse(responseCode = "200", description = "Progress updated successfully")
     @PutMapping("/syncs/progress")
     public ResponseEntity<?> updateProgress(@Parameter(description = "KoReader progress object") @Valid @RequestBody KoreaderProgress koreaderProgress) {
-        koreaderService.saveProgress(koreaderProgress.getDocument(), koreaderProgress);
-        return ResponseEntity.ok(Map.of("status", "progress updated"));
+        Instant syncedAt = koreaderService.saveProgress(koreaderProgress.getDocument(), koreaderProgress);
+        // Mirror the reference KOSync server's PUT /syncs/progress response shape.
+        Map<String, Object> body = new HashMap<>();
+        body.put("document", koreaderProgress.getDocument());
+        body.put("timestamp", syncedAt != null ? syncedAt.getEpochSecond() : null);
+        return ResponseEntity.ok(body);
     }
 }

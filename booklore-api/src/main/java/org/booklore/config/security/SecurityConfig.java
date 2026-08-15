@@ -16,6 +16,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -135,7 +136,13 @@ public class SecurityConfig {
                 .securityMatcher("/api/koreader/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> auth
+                        // Registration is always rejected by the controller itself (with a
+                        // clear 403), which a client can only see if the request is allowed
+                        // to reach it - unlike login/sync, there's no existing KOReader
+                        // account to authenticate this request against yet.
+                        .requestMatchers(HttpMethod.POST, "/api/koreader/users/create").permitAll()
+                        .anyRequest().authenticated())
                 .addFilterBefore(koreaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -24,4 +24,7 @@ public interface BookFileRepository extends JpaRepository<BookFileEntity, Long> 
 
     @Query("SELECT COUNT(bf) FROM BookFileEntity bf WHERE bf.book.id = :bookId")
     long countByBookId(@Param("bookId") Long bookId);
+
+    @Query("SELECT bf FROM BookFileEntity bf WHERE bf.currentHash = :currentHash AND bf.isBookFormat = true")
+    Optional<BookFileEntity> findByCurrentHashAndIsBookFormatTrue(@Param("currentHash") String currentHash);
 }

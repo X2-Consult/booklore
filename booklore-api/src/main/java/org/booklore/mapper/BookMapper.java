@@ -144,6 +144,7 @@ public interface BookMapper {
                 .extension(extractExtension(entity))
                 .description(entity.getDescription())
                 .addedOn(entity.getAddedOn())
+                .currentHash(entity.getCurrentHash())
                 .build();
     }
 
