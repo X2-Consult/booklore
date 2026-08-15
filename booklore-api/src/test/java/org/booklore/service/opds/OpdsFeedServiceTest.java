@@ -78,6 +78,21 @@ class OpdsFeedServiceTest {
     }
 
     @Test
+    void generateRootNavigation_shouldIncludeDefaultImageLinkPerCategory() {
+        String xml = opdsFeedService.generateRootNavigation(request);
+        assertThat(xml.split("http://opds-spec.org/image\"", -1).length - 1).isEqualTo(9);
+        assertThat(xml).contains("/images/opds/all-books.svg");
+        assertThat(xml).contains("/images/opds/continue-reading.svg");
+        assertThat(xml).contains("/images/opds/recently-added.svg");
+        assertThat(xml).contains("/images/opds/libraries.svg");
+        assertThat(xml).contains("/images/opds/shelves.svg");
+        assertThat(xml).contains("/images/opds/magic-shelves.svg");
+        assertThat(xml).contains("/images/opds/authors.svg");
+        assertThat(xml).contains("/images/opds/series.svg");
+        assertThat(xml).contains("/images/opds/surprise-me.svg");
+    }
+
+    @Test
     void generateLibrariesNavigation_shouldListLibraries() {
         mockAuthenticatedUser();
 

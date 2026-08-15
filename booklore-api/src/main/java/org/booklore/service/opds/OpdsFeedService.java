@@ -40,9 +40,42 @@ public class OpdsFeedService {
     private final MagicShelfBookService magicShelfBookService;
     private final AuthorMetadataService authorMetadataService;
 
-    public String generateRootNavigation(HttpServletRequest request) {
+    // Fixed navigation categories with no per-item data of their own, so each gets a
+    // bundled default icon (see appendStaticImageLink) rather than a real cover/photo.
+    private record RootNavEntry(String title, String urnId, String href, String kind, String description, String iconFile) {}
 
-        String feed = """
+    private static final List<RootNavEntry> ROOT_NAV_ENTRIES = List.of(
+            new RootNavEntry("All Books", "urn:booklore:catalog:all",
+                    "/api/v1/opds/catalog?page=1&size=" + DEFAULT_PAGE_SIZE, "acquisition",
+                    "Browse all available books", "all-books"),
+            new RootNavEntry("Continue Reading", "urn:booklore:catalog:continue-reading",
+                    "/api/v1/opds/continue-reading?page=1&size=" + DEFAULT_PAGE_SIZE, "acquisition",
+                    "Books you're currently reading", "continue-reading"),
+            new RootNavEntry("Recently Added", "urn:booklore:catalog:recent",
+                    "/api/v1/opds/recent?page=1&size=" + DEFAULT_PAGE_SIZE, "acquisition",
+                    "Recently added books", "recently-added"),
+            new RootNavEntry("Libraries", "urn:booklore:navigation:libraries",
+                    "/api/v1/opds/libraries", "navigation",
+                    "Browse books by library", "libraries"),
+            new RootNavEntry("Shelves", "urn:booklore:navigation:shelves",
+                    "/api/v1/opds/shelves", "navigation",
+                    "Browse your personal shelves", "shelves"),
+            new RootNavEntry("Magic Shelves", "urn:booklore:navigation:magic-shelves",
+                    "/api/v1/opds/magic-shelves", "navigation",
+                    "Browse your smart, dynamic shelves", "magic-shelves"),
+            new RootNavEntry("Authors", "urn:booklore:navigation:authors",
+                    "/api/v1/opds/authors", "navigation",
+                    "Browse books by author", "authors"),
+            new RootNavEntry("Series", "urn:booklore:navigation:series",
+                    "/api/v1/opds/series", "navigation",
+                    "Browse books by series", "series"),
+            new RootNavEntry("Surprise Me", "urn:booklore:catalog:surprise",
+                    "/api/v1/opds/surprise", "acquisition",
+                    "25 random books from the catalog", "surprise-me")
+    );
+
+    public String generateRootNavigation(HttpServletRequest request) {
+        var feed = new StringBuilder("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
                   <id>urn:booklore:root</id>
@@ -51,89 +84,30 @@ public class OpdsFeedService {
                   <link rel="self" href="/api/v1/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
                   <link rel="start" href="/api/v1/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
                   <link rel="search" type="application/opensearchdescription+xml" title="Search" href="/api/v1/opds/search.opds"/>
-                """.formatted(now()) + """
-                  <entry>
-                    <title>All Books</title>
-                    <id>urn:booklore:catalog:all</id>
-                    <updated>%s</updated>
-                    <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
-                    <content type="text">Browse all available books</content>
-                  </entry>
-                """.formatted(now(), escapeXml("/api/v1/opds/catalog?page=1&size=" + DEFAULT_PAGE_SIZE)) +
-                """
-                          <entry>
-                            <title>Continue Reading</title>
-                            <id>urn:booklore:catalog:continue-reading</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
-                            <content type="text">Books you're currently reading</content>
-                          </entry>
-                        """.formatted(now(), escapeXml("/api/v1/opds/continue-reading?page=1&size=" + DEFAULT_PAGE_SIZE)) +
-                """
-                          <entry>
-                            <title>Recently Added</title>
-                            <id>urn:booklore:catalog:recent</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
-                            <content type="text">Recently added books</content>
-                          </entry>
-                        """.formatted(now(), escapeXml("/api/v1/opds/recent?page=1&size=" + DEFAULT_PAGE_SIZE)) +
-                """
-                          <entry>
-                            <title>Libraries</title>
-                            <id>urn:booklore:navigation:libraries</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="/api/v1/opds/libraries" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
-                            <content type="text">Browse books by library</content>
-                          </entry>
-                        """.formatted(now()) +
-                """
-                          <entry>
-                            <title>Shelves</title>
-                            <id>urn:booklore:navigation:shelves</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="/api/v1/opds/shelves" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
-                            <content type="text">Browse your personal shelves</content>
-                          </entry>
-                        """.formatted(now()) +
-                """
-                          <entry>
-                            <title>Magic Shelves</title>
-                            <id>urn:booklore:navigation:magic-shelves</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="/api/v1/opds/magic-shelves" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
-                            <content type="text">Browse your smart, dynamic shelves</content>
-                          </entry>
-                        """.formatted(now()) +
-                """
-                          <entry>
-                            <title>Authors</title>
-                            <id>urn:booklore:navigation:authors</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="/api/v1/opds/authors" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
-                            <content type="text">Browse books by author</content>
-                          </entry>
-                        """.formatted(now()) +
-                """
-                          <entry>
-                            <title>Series</title>
-                            <id>urn:booklore:navigation:series</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="/api/v1/opds/series" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
-                            <content type="text">Browse books by series</content>
-                          </entry>
-                        """.formatted(now()) +
-                """
-                          <entry>
-                            <title>Surprise Me</title>
-                            <id>urn:booklore:catalog:surprise</id>
-                            <updated>%s</updated>
-                            <link rel="subsection" href="/api/v1/opds/surprise" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
-                            <content type="text">25 random books from the catalog</content>
-                          </entry>
-                        """.formatted(now()) +
-                "</feed>";
-        return feed;
+                """.formatted(now()));
+
+        for (RootNavEntry entry : ROOT_NAV_ENTRIES) {
+            feed.append("""
+                      <entry>
+                        <title>%s</title>
+                        <id>%s</id>
+                        <updated>%s</updated>
+                        <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=%s"/>
+                        <content type="text">%s</content>
+                    """.formatted(
+                    escapeXml(entry.title()),
+                    entry.urnId(),
+                    now(),
+                    escapeXml(entry.href()),
+                    entry.kind(),
+                    escapeXml(entry.description())
+            ));
+            appendStaticImageLink(feed, entry.iconFile());
+            feed.append("  </entry>\n");
+        }
+
+        feed.append("</feed>");
+        return feed.toString();
     }
 
     public String generateLibrariesNavigation(HttpServletRequest request) {
@@ -648,6 +622,16 @@ public class OpdsFeedService {
                         .append(meta.getSeriesNumber()).append("</meta>\n");
             }
         }
+    }
+
+    // Bundled default icon for a fixed root-nav category (see ROOT_NAV_ENTRIES). These
+    // ship as static files, served publicly by the app's normal static resource handler.
+    private void appendStaticImageLink(StringBuilder feed, String iconFile) {
+        String iconUrl = "/images/opds/" + iconFile + ".svg";
+        feed.append("    <link rel=\"http://opds-spec.org/image\" href=\"")
+                .append(escapeXml(iconUrl)).append("\" type=\"image/svg+xml\"/>\n");
+        feed.append("    <link rel=\"http://opds-spec.org/image/thumbnail\" href=\"")
+                .append(escapeXml(iconUrl)).append("\" type=\"image/svg+xml\"/>\n");
     }
 
     // Libraries, shelves, and magic shelves can each have a user-assigned icon. Only
