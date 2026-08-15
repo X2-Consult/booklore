@@ -10,6 +10,7 @@ import org.booklore.model.dto.Book;
 import org.booklore.model.dto.BookFile;
 import org.booklore.model.dto.Library;
 import org.booklore.model.enums.OpdsSortOrder;
+import org.booklore.repository.BookOpdsRepository;
 import org.booklore.service.MagicShelfService;
 import org.booklore.util.ArchiveUtils;
 import org.springframework.data.domain.Page;
@@ -289,7 +290,7 @@ public class OpdsFeedService {
 
     public String generateSeriesNavigation(HttpServletRequest request) {
         Long userId = getUserId();
-        List<String> seriesList = opdsBookService.getDistinctSeries(userId);
+        List<BookOpdsRepository.SeriesCoverProjection> seriesList = opdsBookService.getDistinctSeries(userId);
 
         var feed = new StringBuilder("""
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -302,7 +303,8 @@ public class OpdsFeedService {
                   <link rel="search" type="application/opensearchdescription+xml" title="Search" href="/api/v1/opds/search.opds"/>
                 """.formatted(now()));
 
-        for (String series : seriesList) {
+        for (BookOpdsRepository.SeriesCoverProjection series : seriesList) {
+            String seriesName = series.getSeriesName();
             feed.append("""
                       <entry>
                         <title>%s</title>
@@ -310,14 +312,21 @@ public class OpdsFeedService {
                         <updated>%s</updated>
                         <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
                         <content type="text">Books in the %s series</content>
-                      </entry>
                     """.formatted(
-                    escapeXml(series),
-                    escapeXml(series),
+                    escapeXml(seriesName),
+                    escapeXml(seriesName),
                     now(),
-                    escapeXml("/api/v1/opds/catalog?series=" + java.net.URLEncoder.encode(series, java.nio.charset.StandardCharsets.UTF_8)),
-                    escapeXml(series)
+                    escapeXml("/api/v1/opds/catalog?series=" + java.net.URLEncoder.encode(seriesName, java.nio.charset.StandardCharsets.UTF_8)),
+                    escapeXml(seriesName)
             ));
+            if (series.getBookId() != null && series.getCoverUpdatedOn() != null) {
+                String coverUrl = "/api/v1/opds/" + series.getBookId() + "/cover?" + series.getCoverUpdatedOn();
+                feed.append("    <link rel=\"http://opds-spec.org/image\" href=\"")
+                        .append(escapeXml(coverUrl)).append("\" type=\"image/jpeg\"/>\n");
+                feed.append("    <link rel=\"http://opds-spec.org/image/thumbnail\" href=\"")
+                        .append(escapeXml(coverUrl)).append("\" type=\"image/jpeg\"/>\n");
+            }
+            feed.append("  </entry>\n");
         }
 
         feed.append("</feed>");

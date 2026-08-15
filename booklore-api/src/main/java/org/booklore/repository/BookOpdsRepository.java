@@ -227,29 +227,46 @@ public interface BookOpdsRepository extends JpaRepository<BookEntity, Long>, Jpa
     Page<Long> findBookIdsByAuthorNameAndLibraryIds(@Param("authorName") String authorName, @Param("libraryIds") Collection<Long> libraryIds, Pageable pageable);
 
     // ============================================
-    // SERIES - Distinct Series List
+    // SERIES - Distinct Series List (with cover info for navigation feed)
     // ============================================
 
-    @Query("""
-            SELECT DISTINCT m.seriesName FROM BookMetadataEntity m
-            JOIN m.book b
+    // One representative book per series (the one that would sort first within the
+    // series) so the series navigation entry can carry a cover image. DISTINCT ON is
+    // Postgres-specific, which matches this project's production database.
+    @Query(value = """
+            SELECT DISTINCT ON (m.series_name)
+                m.series_name AS seriesName,
+                m.book_id AS bookId,
+                m.cover_updated_on AS coverUpdatedOn
+            FROM book_metadata m
+            JOIN book b ON b.id = m.book_id
             WHERE (b.deleted IS NULL OR b.deleted = false)
-              AND m.seriesName IS NOT NULL
-              AND m.seriesName != ''
-            ORDER BY m.seriesName
-            """)
-    List<String> findDistinctSeries();
+              AND m.series_name IS NOT NULL
+              AND m.series_name != ''
+            ORDER BY m.series_name, COALESCE(m.series_number, 999999), b.added_on DESC
+            """, nativeQuery = true)
+    List<SeriesCoverProjection> findDistinctSeriesWithCover();
 
-    @Query("""
-            SELECT DISTINCT m.seriesName FROM BookMetadataEntity m
-            JOIN m.book b
+    @Query(value = """
+            SELECT DISTINCT ON (m.series_name)
+                m.series_name AS seriesName,
+                m.book_id AS bookId,
+                m.cover_updated_on AS coverUpdatedOn
+            FROM book_metadata m
+            JOIN book b ON b.id = m.book_id
             WHERE (b.deleted IS NULL OR b.deleted = false)
-              AND b.library.id IN :libraryIds
-              AND m.seriesName IS NOT NULL
-              AND m.seriesName != ''
-            ORDER BY m.seriesName
-            """)
-    List<String> findDistinctSeriesByLibraryIds(@Param("libraryIds") Collection<Long> libraryIds);
+              AND b.library_id IN :libraryIds
+              AND m.series_name IS NOT NULL
+              AND m.series_name != ''
+            ORDER BY m.series_name, COALESCE(m.series_number, 999999), b.added_on DESC
+            """, nativeQuery = true)
+    List<SeriesCoverProjection> findDistinctSeriesWithCoverByLibraryIds(@Param("libraryIds") Collection<Long> libraryIds);
+
+    interface SeriesCoverProjection {
+        String getSeriesName();
+        Long getBookId();
+        java.time.Instant getCoverUpdatedOn();
+    }
 
     // ============================================
     // BOOKS BY SERIES - Two Query Pattern (sorted by series number)

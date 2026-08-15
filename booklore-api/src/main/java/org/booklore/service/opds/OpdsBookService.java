@@ -257,7 +257,9 @@ public class OpdsBookService {
         return result;
     }
 
-    public List<String> getDistinctSeries(Long userId) {
+    // Each series entry carries the id/cover-updated-on of a representative book so the
+    // OPDS series navigation entry can show a cover image.
+    public List<BookOpdsRepository.SeriesCoverProjection> getDistinctSeries(Long userId) {
         if (userId == null) {
             return List.of();
         }
@@ -267,14 +269,14 @@ public class OpdsBookService {
         BookLoreUser user = bookLoreUserTransformer.toDTO(entity);
 
         if (user.getPermissions().isAdmin()) {
-            return bookOpdsRepository.findDistinctSeries();
+            return bookOpdsRepository.findDistinctSeriesWithCover();
         }
 
         Set<Long> libraryIds = user.getAssignedLibraries().stream()
                 .map(Library::getId)
                 .collect(Collectors.toSet());
 
-        return bookOpdsRepository.findDistinctSeriesByLibraryIds(libraryIds);
+        return bookOpdsRepository.findDistinctSeriesWithCoverByLibraryIds(libraryIds);
     }
 
     public Page<Book> getBooksBySeriesName(Long userId, String seriesName, int page, int size) {
