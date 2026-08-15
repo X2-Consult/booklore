@@ -8,7 +8,7 @@ import {TableModule} from 'primeng/table';
 import {Dialog} from 'primeng/dialog';
 import {FormsModule} from '@angular/forms';
 import {ConfirmDialog} from 'primeng/confirmdialog';
-import {ConfirmationService, MessageService} from 'primeng/api';
+import {ConfirmationService, MessageService, PrimeTemplate} from 'primeng/api';
 import {OpdsService, OpdsSortOrder, OpdsUserV2, OpdsUserV2CreateRequest} from './opds.service';
 import {catchError, filter, take, takeUntil, tap} from 'rxjs/operators';
 import {UserService} from '../user-management/user.service';
@@ -33,6 +33,7 @@ import {TranslocoDirective, TranslocoPipe, TranslocoService} from '@jsverse/tran
     ToggleSwitch,
     ExternalDocLinkComponent,
     Select,
+    PrimeTemplate,
     TranslocoDirective,
     TranslocoPipe
   ],

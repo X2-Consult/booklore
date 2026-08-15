@@ -7,7 +7,7 @@ import {Tooltip} from 'primeng/tooltip';
 import {Dialog} from 'primeng/dialog';
 import {FormsModule} from '@angular/forms';
 import {ConfirmDialog} from 'primeng/confirmdialog';
-import {ConfirmationService, MessageService} from 'primeng/api';
+import {ConfirmationService, MessageService, PrimeTemplate} from 'primeng/api';
 import {ApiTokenCreatedResponse, ApiTokenSummary, ApiTokensService} from './api-tokens.service';
 import {catchError, takeUntil} from 'rxjs/operators';
 import {of, Subject} from 'rxjs';
@@ -23,6 +23,7 @@ import {TranslocoDirective, TranslocoPipe, TranslocoService} from '@jsverse/tran
     FormsModule,
     ConfirmDialog,
     DatePipe,
+    PrimeTemplate,
     TranslocoDirective,
     TranslocoPipe
   ],
