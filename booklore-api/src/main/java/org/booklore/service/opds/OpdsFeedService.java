@@ -10,6 +10,7 @@ import org.booklore.model.dto.Book;
 import org.booklore.model.dto.BookFile;
 import org.booklore.model.dto.Library;
 import org.booklore.model.entity.AuthorEntity;
+import org.booklore.model.enums.IconType;
 import org.booklore.model.enums.OpdsSortOrder;
 import org.booklore.repository.BookOpdsRepository;
 import org.booklore.service.AuthorMetadataService;
@@ -158,7 +159,6 @@ public class OpdsFeedService {
                         <updated>%s</updated>
                         <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
                         <content type="text">%s</content>
-                      </entry>
                     """.formatted(
                     escapeXml(library.getName()),
                     library.getId(),
@@ -166,6 +166,8 @@ public class OpdsFeedService {
                     escapeXml("/api/v1/opds/catalog?libraryId=" + library.getId()),
                     escapeXml(library.getName() != null ? library.getName() : "Library collection")
             ));
+            appendIconImageLink(feed, library.getIcon(), library.getIconType());
+            feed.append("  </entry>\n");
         }
 
         feed.append("</feed>");
@@ -198,13 +200,14 @@ public class OpdsFeedService {
                                 <updated>%s</updated>
                                 <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
                                 <content type="text">Personal shelf collection</content>
-                              </entry>
                             """.formatted(
                             escapeXml(shelf.getName()),
                             shelf.getId(),
                             now(),
                             escapeXml("/api/v1/opds/catalog?shelfId=" + shelf.getId())
                     ));
+                    appendIconImageLink(feed, shelf.getIcon(), shelf.getIconType());
+                    feed.append("  </entry>\n");
                 }
             }
         }
@@ -239,13 +242,14 @@ public class OpdsFeedService {
                                 <updated>%s</updated>
                                 <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
                                 <content type="text">Smart, dynamic shelf collection</content>
-                              </entry>
                             """.formatted(
                             escapeXml(shelf.getName()),
                             shelf.getId(),
                             now(),
                             escapeXml("/api/v1/opds/catalog?magicShelfId=" + shelf.getId())
                     ));
+                    appendIconImageLink(feed, shelf.getIcon(), shelf.getIconType());
+                    feed.append("  </entry>\n");
                 }
             }
         }
@@ -644,6 +648,20 @@ public class OpdsFeedService {
                         .append(meta.getSeriesNumber()).append("</meta>\n");
             }
         }
+    }
+
+    // Libraries, shelves, and magic shelves can each have a user-assigned icon. Only
+    // CUSTOM_SVG carries an actual image (served via /api/v1/opds/icons/{name}); PRIME_NG
+    // is just an icon-font class name, so there's nothing to link to for those.
+    private void appendIconImageLink(StringBuilder feed, String icon, IconType iconType) {
+        if (iconType != IconType.CUSTOM_SVG || icon == null || icon.isBlank()) {
+            return;
+        }
+        String iconUrl = "/api/v1/opds/icons/" + java.net.URLEncoder.encode(icon, java.nio.charset.StandardCharsets.UTF_8);
+        feed.append("    <link rel=\"http://opds-spec.org/image\" href=\"")
+                .append(escapeXml(iconUrl)).append("\" type=\"image/svg+xml\"/>\n");
+        feed.append("    <link rel=\"http://opds-spec.org/image/thumbnail\" href=\"")
+                .append(escapeXml(iconUrl)).append("\" type=\"image/svg+xml\"/>\n");
     }
 
     private void appendLinks(StringBuilder feed, Book book) {

@@ -8,6 +8,7 @@ import org.booklore.model.dto.progress.EpubProgress;
 import org.booklore.model.dto.progress.PdfProgress;
 import org.booklore.model.entity.ShelfEntity;
 import org.booklore.model.enums.BookFileType;
+import org.booklore.model.enums.IconType;
 import org.booklore.model.enums.OpdsSortOrder;
 import org.booklore.service.AuthorMetadataService;
 import org.booklore.service.MagicShelfService;
@@ -91,6 +92,31 @@ class OpdsFeedServiceTest {
     }
 
     @Test
+    void generateLibrariesNavigation_shouldIncludeImageLinkForCustomSvgIcon() {
+        mockAuthenticatedUser();
+
+        Library lib = Library.builder().id(1L).name("Test Library").watch(false)
+                .icon("library-big").iconType(IconType.CUSTOM_SVG).build();
+        when(opdsBookService.getAccessibleLibraries(TEST_USER_ID)).thenReturn(List.of(lib));
+
+        String xml = opdsFeedService.generateLibrariesNavigation(request);
+        assertThat(xml).contains("http://opds-spec.org/image");
+        assertThat(xml).contains("/api/v1/opds/icons/library-big");
+    }
+
+    @Test
+    void generateLibrariesNavigation_shouldOmitImageLinkForPrimeNgIcon() {
+        mockAuthenticatedUser();
+
+        Library lib = Library.builder().id(1L).name("Test Library").watch(false)
+                .icon("pi pi-book").iconType(IconType.PRIME_NG).build();
+        when(opdsBookService.getAccessibleLibraries(TEST_USER_ID)).thenReturn(List.of(lib));
+
+        String xml = opdsFeedService.generateLibrariesNavigation(request);
+        assertThat(xml).doesNotContain("http://opds-spec.org/image");
+    }
+
+    @Test
     void generateLibrariesNavigation_shouldHandleNoLibraries() {
         mockAuthenticatedUser();
         when(opdsBookService.getAccessibleLibraries(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -114,6 +140,31 @@ class OpdsFeedServiceTest {
     }
 
     @Test
+    void generateShelvesNavigation_shouldIncludeImageLinkForCustomSvgIcon() {
+        mockAuthenticatedUser();
+
+        ShelfEntity shelfEntity = ShelfEntity.builder().id(5L).name("Favorites")
+                .icon("heart").iconType(IconType.CUSTOM_SVG).build();
+        when(opdsBookService.getUserShelves(TEST_USER_ID)).thenReturn(Collections.singletonList(shelfEntity));
+
+        String xml = opdsFeedService.generateShelvesNavigation(request);
+        assertThat(xml).contains("http://opds-spec.org/image");
+        assertThat(xml).contains("/api/v1/opds/icons/heart");
+    }
+
+    @Test
+    void generateShelvesNavigation_shouldOmitImageLinkForPrimeNgIcon() {
+        mockAuthenticatedUser();
+
+        ShelfEntity shelfEntity = ShelfEntity.builder().id(5L).name("Favorites")
+                .icon("pi pi-star").iconType(IconType.PRIME_NG).build();
+        when(opdsBookService.getUserShelves(TEST_USER_ID)).thenReturn(Collections.singletonList(shelfEntity));
+
+        String xml = opdsFeedService.generateShelvesNavigation(request);
+        assertThat(xml).doesNotContain("http://opds-spec.org/image");
+    }
+
+    @Test
     void generateShelvesNavigation_shouldHandleNoShelves() {
         mockAuthenticatedUser();
         when(opdsBookService.getUserShelves(TEST_USER_ID)).thenReturn(Collections.emptyList());
@@ -129,6 +180,37 @@ class OpdsFeedServiceTest {
                 .isInstanceOf(org.booklore.exception.APIException.class)
                 .hasMessageContaining("OPDS authentication required");
         verify(opdsBookService, never()).getUserShelves(any());
+    }
+
+    @Test
+    void generateMagicShelvesNavigation_shouldIncludeImageLinkForCustomSvgIcon() {
+        mockAuthenticatedUser();
+
+        MagicShelf magicShelf = new MagicShelf();
+        magicShelf.setId(7L);
+        magicShelf.setName("Unread Sci-Fi");
+        magicShelf.setIcon("rocket");
+        magicShelf.setIconType(IconType.CUSTOM_SVG);
+        when(magicShelfService.getUserShelvesForOpds(TEST_USER_ID)).thenReturn(List.of(magicShelf));
+
+        String xml = opdsFeedService.generateMagicShelvesNavigation(request);
+        assertThat(xml).contains("http://opds-spec.org/image");
+        assertThat(xml).contains("/api/v1/opds/icons/rocket");
+    }
+
+    @Test
+    void generateMagicShelvesNavigation_shouldOmitImageLinkForPrimeNgIcon() {
+        mockAuthenticatedUser();
+
+        MagicShelf magicShelf = new MagicShelf();
+        magicShelf.setId(7L);
+        magicShelf.setName("Unread Sci-Fi");
+        magicShelf.setIcon("pi pi-sparkles");
+        magicShelf.setIconType(IconType.PRIME_NG);
+        when(magicShelfService.getUserShelvesForOpds(TEST_USER_ID)).thenReturn(List.of(magicShelf));
+
+        String xml = opdsFeedService.generateMagicShelvesNavigation(request);
+        assertThat(xml).doesNotContain("http://opds-spec.org/image");
     }
 
     @Test

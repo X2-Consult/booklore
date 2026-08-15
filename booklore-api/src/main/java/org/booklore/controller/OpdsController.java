@@ -3,6 +3,7 @@ package org.booklore.controller;
 import org.booklore.config.security.service.AuthenticationService;
 import org.booklore.config.security.userdetails.OpdsUserDetails;
 import org.booklore.service.AuthorMetadataService;
+import org.booklore.service.IconService;
 import org.booklore.service.book.BookDownloadService;
 import org.booklore.service.book.BookService;
 import org.booklore.service.opds.OpdsBookService;
@@ -41,6 +42,7 @@ public class OpdsController {
     private final OpdsBookService opdsBookService;
     private final AuthenticationService authenticationService;
     private final AuthorMetadataService authorMetadataService;
+    private final IconService iconService;
 
     @Operation(summary = "Download book file", description = "Download the book file by its ID. Optionally specify a fileId to download a specific format.")
     @ApiResponses({
@@ -129,6 +131,19 @@ public class OpdsController {
                 .contentType(MediaType.IMAGE_JPEG)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + photo.getFilename() + "\"")
                 .body(photo);
+    }
+
+    @Operation(summary = "Get custom SVG icon", description = "Retrieve the SVG content of a custom icon assigned to a library, shelf, or magic shelf.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "SVG icon returned successfully"),
+        @ApiResponse(responseCode = "404", description = "Icon not found")
+    })
+    @GetMapping("/icons/{iconName}")
+    public ResponseEntity<String> getIcon(@Parameter(description = "Name of the icon") @PathVariable String iconName) {
+        String svgContent = iconService.getSvgIcon(iconName);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("image/svg+xml"))
+                .body(svgContent);
     }
 
     @Operation(summary = "Get OPDS authors navigation", description = "Retrieve the OPDS authors navigation feed.")
