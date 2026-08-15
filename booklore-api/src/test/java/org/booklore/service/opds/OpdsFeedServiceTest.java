@@ -9,6 +9,7 @@ import org.booklore.model.dto.progress.PdfProgress;
 import org.booklore.model.entity.ShelfEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.model.enums.OpdsSortOrder;
+import org.booklore.service.AuthorMetadataService;
 import org.booklore.service.MagicShelfService;
 import org.booklore.util.ArchiveUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,7 @@ class OpdsFeedServiceTest {
     private OpdsBookService opdsBookService;
     private MagicShelfService magicShelfService;
     private MagicShelfBookService magicShelfBookService;
+    private AuthorMetadataService authorMetadataService;
     private OpdsFeedService opdsFeedService;
     private HttpServletRequest request;
 
@@ -44,7 +46,8 @@ class OpdsFeedServiceTest {
         opdsBookService = mock(OpdsBookService.class);
         magicShelfService = mock(MagicShelfService.class);
         magicShelfBookService = mock(MagicShelfBookService.class);
-        opdsFeedService = new OpdsFeedService(authenticationService, opdsBookService, magicShelfService, magicShelfBookService);
+        authorMetadataService = mock(AuthorMetadataService.class);
+        opdsFeedService = new OpdsFeedService(authenticationService, opdsBookService, magicShelfService, magicShelfBookService, authorMetadataService);
         request = mock(HttpServletRequest.class);
     }
 

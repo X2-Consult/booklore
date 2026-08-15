@@ -309,6 +309,10 @@ public class AuthorMetadataService {
         return null;
     }
 
+    public boolean hasAuthorThumbnail(Long authorId) {
+        return Files.exists(Paths.get(fileService.getAuthorThumbnailFile(authorId)));
+    }
+
     private void verifyAuthorAccess(Long authorId) {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
         if (user.getPermissions().isAdmin()) {

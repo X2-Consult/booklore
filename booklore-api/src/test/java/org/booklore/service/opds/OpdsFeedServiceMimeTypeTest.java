@@ -9,6 +9,7 @@ import org.booklore.model.dto.LibraryPath;
 import org.booklore.model.dto.OpdsUserV2;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.model.enums.OpdsSortOrder;
+import org.booklore.service.AuthorMetadataService;
 import org.booklore.service.MagicShelfService;
 import org.booklore.util.ArchiveUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,6 +41,7 @@ class OpdsFeedServiceMimeTypeTest {
     private OpdsBookService opdsBookService;
     private MagicShelfService magicShelfService;
     private MagicShelfBookService magicShelfBookService;
+    private AuthorMetadataService authorMetadataService;
     private OpdsFeedService opdsFeedService;
     private HttpServletRequest request;
 
@@ -52,7 +54,8 @@ class OpdsFeedServiceMimeTypeTest {
         opdsBookService = mock(OpdsBookService.class);
         magicShelfService = mock(MagicShelfService.class);
         magicShelfBookService = mock(MagicShelfBookService.class);
-        opdsFeedService = new OpdsFeedService(authenticationService, opdsBookService, magicShelfService, magicShelfBookService);
+        authorMetadataService = mock(AuthorMetadataService.class);
+        opdsFeedService = new OpdsFeedService(authenticationService, opdsBookService, magicShelfService, magicShelfBookService, authorMetadataService);
         request = mock(HttpServletRequest.class);
         
         mockAuthenticatedUser();

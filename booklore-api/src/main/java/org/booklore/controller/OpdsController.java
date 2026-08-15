@@ -2,6 +2,7 @@ package org.booklore.controller;
 
 import org.booklore.config.security.service.AuthenticationService;
 import org.booklore.config.security.userdetails.OpdsUserDetails;
+import org.booklore.service.AuthorMetadataService;
 import org.booklore.service.book.BookDownloadService;
 import org.booklore.service.book.BookService;
 import org.booklore.service.opds.OpdsBookService;
@@ -39,6 +40,7 @@ public class OpdsController {
     private final BookDownloadService bookDownloadService;
     private final OpdsBookService opdsBookService;
     private final AuthenticationService authenticationService;
+    private final AuthorMetadataService authorMetadataService;
 
     @Operation(summary = "Download book file", description = "Download the book file by its ID. Optionally specify a fileId to download a specific format.")
     @ApiResponses({
@@ -110,6 +112,23 @@ public class OpdsController {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(OPDS_CATALOG_MEDIA_TYPE))
                 .body(feed);
+    }
+
+    @Operation(summary = "Get author photo", description = "Retrieve the thumbnail photo for an author by their ID.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Author photo returned successfully"),
+        @ApiResponse(responseCode = "404", description = "Author has no photo")
+    })
+    @GetMapping("/authors/{authorId}/photo")
+    public ResponseEntity<Resource> getAuthorPhoto(@Parameter(description = "ID of the author") @PathVariable long authorId) {
+        Resource photo = authorMetadataService.getAuthorThumbnail(authorId);
+        if (photo == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + photo.getFilename() + "\"")
+                .body(photo);
     }
 
     @Operation(summary = "Get OPDS authors navigation", description = "Retrieve the OPDS authors navigation feed.")

@@ -9,8 +9,10 @@ import org.booklore.config.security.userdetails.OpdsUserDetails;
 import org.booklore.model.dto.Book;
 import org.booklore.model.dto.BookFile;
 import org.booklore.model.dto.Library;
+import org.booklore.model.entity.AuthorEntity;
 import org.booklore.model.enums.OpdsSortOrder;
 import org.booklore.repository.BookOpdsRepository;
+import org.booklore.service.AuthorMetadataService;
 import org.booklore.service.MagicShelfService;
 import org.booklore.util.ArchiveUtils;
 import org.springframework.data.domain.Page;
@@ -35,6 +37,7 @@ public class OpdsFeedService {
     private final OpdsBookService opdsBookService;
     private final MagicShelfService magicShelfService;
     private final MagicShelfBookService magicShelfBookService;
+    private final AuthorMetadataService authorMetadataService;
 
     public String generateRootNavigation(HttpServletRequest request) {
 
@@ -253,7 +256,7 @@ public class OpdsFeedService {
 
     public String generateAuthorsNavigation(HttpServletRequest request) {
         Long userId = getUserId();
-        List<String> authors = opdsBookService.getDistinctAuthors(userId);
+        List<AuthorEntity> authors = opdsBookService.getDistinctAuthors(userId);
 
         var feed = new StringBuilder("""
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -266,7 +269,8 @@ public class OpdsFeedService {
                   <link rel="search" type="application/opensearchdescription+xml" title="Search" href="/api/v1/opds/search.opds"/>
                 """.formatted(now()));
 
-        for (String author : authors) {
+        for (AuthorEntity author : authors) {
+            String authorName = author.getName();
             feed.append("""
                       <entry>
                         <title>%s</title>
@@ -274,14 +278,21 @@ public class OpdsFeedService {
                         <updated>%s</updated>
                         <link rel="subsection" href="%s" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
                         <content type="text">Books by %s</content>
-                      </entry>
                     """.formatted(
-                    escapeXml(author),
-                    escapeXml(author),
+                    escapeXml(authorName),
+                    escapeXml(authorName),
                     now(),
-                    escapeXml("/api/v1/opds/catalog?author=" + java.net.URLEncoder.encode(author, java.nio.charset.StandardCharsets.UTF_8)),
-                    escapeXml(author)
+                    escapeXml("/api/v1/opds/catalog?author=" + java.net.URLEncoder.encode(authorName, java.nio.charset.StandardCharsets.UTF_8)),
+                    escapeXml(authorName)
             ));
+            if (authorMetadataService.hasAuthorThumbnail(author.getId())) {
+                String photoUrl = "/api/v1/opds/authors/" + author.getId() + "/photo";
+                feed.append("    <link rel=\"http://opds-spec.org/image\" href=\"")
+                        .append(escapeXml(photoUrl)).append("\" type=\"image/jpeg\"/>\n");
+                feed.append("    <link rel=\"http://opds-spec.org/image/thumbnail\" href=\"")
+                        .append(escapeXml(photoUrl)).append("\" type=\"image/jpeg\"/>\n");
+            }
+            feed.append("  </entry>\n");
         }
 
         feed.append("</feed>");

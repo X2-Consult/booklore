@@ -191,7 +191,9 @@ public class OpdsBookService {
         return result;
     }
 
-    public List<String> getDistinctAuthors(Long userId) {
+    // Kept as AuthorEntity (rather than just the name) so the OPDS authors navigation
+    // feed can link to the author's photo by id.
+    public List<AuthorEntity> getDistinctAuthors(Long userId) {
         if (userId == null) {
             return List.of();
         }
@@ -212,10 +214,10 @@ public class OpdsBookService {
         }
 
         return authors.stream()
-                .map(AuthorEntity::getName)
-                .filter(Objects::nonNull)
-                .distinct()
-                .sorted()
+                .filter(a -> a.getName() != null)
+                .collect(Collectors.toMap(AuthorEntity::getName, a -> a, (first, dup) -> first, LinkedHashMap::new))
+                .values().stream()
+                .sorted(Comparator.comparing(AuthorEntity::getName))
                 .toList();
     }
 
