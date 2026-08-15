@@ -6,7 +6,6 @@ import {HttpClient} from '@angular/common/http';
 
 export interface KoreaderUser {
   username: string;
-  password: string;
   syncEnabled: boolean;
   syncWithBookloreReader: boolean;
 }

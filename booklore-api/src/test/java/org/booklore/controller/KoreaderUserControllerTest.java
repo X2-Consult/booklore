@@ -30,7 +30,7 @@ class KoreaderUserControllerTest {
     @BeforeEach
     void setUp() {
         try (AutoCloseable mocks = MockitoAnnotations.openMocks(this)) {
-            user = new KoreaderUser(1L, "testuser", "pass", "md5", true, true);
+            user = new KoreaderUser(1L, "testuser", true, true);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

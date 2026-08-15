@@ -67,7 +67,9 @@ export class KoreaderSettingsComponent implements OnInit, OnDestroy {
     this.koreaderService.getUser().subscribe({
       next: koreaderUser => {
         this.koReaderUsername = koreaderUser.username;
-        this.koReaderPassword = koreaderUser.password;
+        // The server never returns the password (only its MD5 digest is stored) - a
+        // saved credential is displayed as masked/blank until the user sets a new one.
+        this.koReaderPassword = '';
         this.koReaderSyncEnabled = koreaderUser.syncEnabled;
         this.syncWithBookloreReader = koreaderUser.syncWithBookloreReader ?? false;
         this.credentialsSaved = true;

@@ -159,7 +159,10 @@ public class KoreaderService {
         updateReadStatus(userProgress, koProgress.getPercentage());
     }
 
-    private void updateReadStatus(UserBookProgressEntity userProgress, double progressFraction) {
+    private void updateReadStatus(UserBookProgressEntity userProgress, Float progressFraction) {
+        if (progressFraction == null) {
+            return;
+        }
         double progressPercent = progressFraction * 100.0;
         if (progressPercent >= 99.5) {
             userProgress.setReadStatus(ReadStatus.READ);

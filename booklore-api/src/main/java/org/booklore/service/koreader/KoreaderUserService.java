@@ -42,7 +42,6 @@ public class KoreaderUserService {
         });
 
         user.setUsername(username);
-        user.setPassword(rawPassword);
         user.setPasswordMD5(md5Password);
         KoreaderUserEntity saved = koreaderUserRepository.save(user);
 

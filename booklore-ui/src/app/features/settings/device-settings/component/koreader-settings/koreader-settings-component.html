@@ -140,6 +140,7 @@
                       [type]="showPassword ? 'text' : 'password'"
                       [(ngModel)]="koReaderPassword"
                       #passwordModel="ngModel"
+                      [placeholder]="credentialsSaved && !koReaderPassword ? '••••••••' : ''"
                       [class.p-invalid]="passwordModel.invalid && passwordModel.touched"
                       [disabled]="editMode"
                       class="token-input-password"/>
@@ -162,7 +163,7 @@
                   </div>
                 </div>
                 <p class="setting-description">
-                  {{ t('koreader.passwordDesc') }}
+                  {{ credentialsSaved && !koReaderPassword ? t('koreader.passwordNotRetrievable') : t('koreader.passwordDesc') }}
                 </p>
                 @if (editMode && passwordModel.invalid && passwordModel.touched) {
                   <small class="error-message">

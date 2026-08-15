@@ -21,9 +21,6 @@ public class KoreaderUserEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String username;
 
-    @Column(nullable = false)
-    private String password;
-
     @Column(name = "password_md5", nullable = false)
     private String passwordMD5;
 

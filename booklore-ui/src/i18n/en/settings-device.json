@@ -21,6 +21,7 @@
     "usernameRequired": "Username is required.",
     "password": "KOReader Password",
     "passwordDesc": "Your password for authenticating with the KOReader sync service.",
+    "passwordNotRetrievable": "For security, your saved password can't be displayed again. Click Edit and enter a new one to change it.",
     "passwordMinLength": "Password must be at least 8 characters.",
     "settingsManagement": "Settings Management",
     "settingsManagementDesc": "Save your credentials or edit existing settings.",

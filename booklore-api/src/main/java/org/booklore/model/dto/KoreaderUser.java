@@ -9,8 +9,6 @@ import lombok.Getter;
 public class KoreaderUser {
     private Long id;
     private String username;
-    private String password;
-    private String passwordMD5;
     private boolean syncEnabled;
     private boolean syncWithBookloreReader;
 }

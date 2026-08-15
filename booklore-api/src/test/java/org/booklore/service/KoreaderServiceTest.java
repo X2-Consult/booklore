@@ -266,6 +266,28 @@ class KoreaderServiceTest {
     }
 
     @Test
+    void saveProgress_nullPercentage_doesNotThrow() {
+        when(details.isSyncEnabled()).thenReturn(true);
+        var book = new BookEntity();
+        book.setId(9L);
+        when(bookRepo.findByCurrentHash("h")).thenReturn(Optional.of(book));
+        var user = new BookLoreUserEntity();
+        user.setId(42L);
+        when(userRepo.findById(42L)).thenReturn(Optional.of(user));
+        when(progressRepo.findByUserIdAndBookId(42L, 9L))
+                .thenReturn(Optional.empty());
+
+        var dto = KoreaderProgress.builder().document("h").progress("z").percentage(null).build();
+
+        assertDoesNotThrow(() -> service.saveProgress("h", dto));
+
+        ArgumentCaptor<UserBookProgressEntity> cap = ArgumentCaptor.forClass(UserBookProgressEntity.class);
+        verify(progressRepo).save(cap.capture());
+        assertNull(cap.getValue().getKoreaderProgressPercent());
+        verify(hardcoverSyncService, never()).syncProgressToHardcover(any(), any(), any());
+    }
+
+    @Test
     void normalizeProgressPercent_handlesNullAndRanges() throws Exception {
         Method method = KoreaderService.class.getDeclaredMethod("normalizeProgressPercent", Float.class);
         method.setAccessible(true);
