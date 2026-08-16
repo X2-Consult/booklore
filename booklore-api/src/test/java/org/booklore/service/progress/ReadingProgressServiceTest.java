@@ -127,7 +127,8 @@ class ReadingProgressServiceTest {
         progress.setReadStatus(ReadStatus.READING);
         progress.setEpubProgress("cfi");
         progress.setEpubProgressPercent(50.0f);
-        progress.setLastReadTime(Instant.now());
+        Instant lastReadTime = Instant.now();
+        progress.setLastReadTime(lastReadTime);
 
         readingProgressService.enrichBookWithProgress(book, progress);
 
@@ -135,6 +136,7 @@ class ReadingProgressServiceTest {
         assertNotNull(book.getEpubProgress());
         assertEquals("cfi", book.getEpubProgress().getCfi());
         assertEquals(50.0f, book.getEpubProgress().getPercentage());
+        assertEquals(lastReadTime, book.getEpubProgress().getLastReadTime());
     }
 
     @Test
@@ -154,12 +156,15 @@ class ReadingProgressServiceTest {
         fileProgress.setBookFile(bookFile);
         fileProgress.setPositionData("new-cfi");
         fileProgress.setProgressPercent(50.0f);
-        fileProgress.setLastReadTime(Instant.now());
+        Instant fileLastReadTime = Instant.now();
+        fileProgress.setLastReadTime(fileLastReadTime);
 
         readingProgressService.enrichBookWithProgress(book, progress, fileProgress);
 
         assertEquals("new-cfi", book.getEpubProgress().getCfi());
         assertEquals(50.0f, book.getEpubProgress().getPercentage());
+        // The file-level lastReadTime overlays the book-level one, same as the position data.
+        assertEquals(fileLastReadTime, book.getEpubProgress().getLastReadTime());
     }
 
     @Test

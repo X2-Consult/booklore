@@ -163,6 +163,7 @@ public class ReadingProgressService {
                     .cfi(progress.getEpubProgress())
                     .href(progress.getEpubProgressHref())
                     .percentage(roundToOneDecimal(progress.getEpubProgressPercent()))
+                    .lastReadTime(progress.getLastReadTime())
                     .build());
         }
 
@@ -170,6 +171,7 @@ public class ReadingProgressService {
             book.setPdfProgress(PdfProgress.builder()
                     .page(progress.getPdfProgress())
                     .percentage(roundToOneDecimal(progress.getPdfProgressPercent()))
+                    .lastReadTime(progress.getLastReadTime())
                     .build());
         }
 
@@ -177,6 +179,7 @@ public class ReadingProgressService {
             book.setCbxProgress(CbxProgress.builder()
                     .page(progress.getCbxProgress())
                     .percentage(roundToOneDecimal(progress.getCbxProgressPercent()))
+                    .lastReadTime(progress.getLastReadTime())
                     .build());
         }
     }
@@ -191,19 +194,23 @@ public class ReadingProgressService {
                     .href(fileProgress.getPositionHref())
                     .percentage(roundToOneDecimal(fileProgress.getProgressPercent()))
                     .ttsPositionCfi(fileProgress.getTtsPositionCfi())
+                    .lastReadTime(fileProgress.getLastReadTime())
                     .build());
             case PDF -> book.setPdfProgress(PdfProgress.builder()
                     .page(parseIntOrNull(fileProgress.getPositionData()))
                     .percentage(roundToOneDecimal(fileProgress.getProgressPercent()))
+                    .lastReadTime(fileProgress.getLastReadTime())
                     .build());
             case CBX -> book.setCbxProgress(CbxProgress.builder()
                     .page(parseIntOrNull(fileProgress.getPositionData()))
                     .percentage(roundToOneDecimal(fileProgress.getProgressPercent()))
+                    .lastReadTime(fileProgress.getLastReadTime())
                     .build());
             case AUDIOBOOK -> book.setAudiobookProgress(AudiobookProgress.builder()
                     .positionMs(parseLongOrNull(fileProgress.getPositionData()))
                     .trackIndex(parseIntOrNull(fileProgress.getPositionHref()))
                     .percentage(roundToOneDecimal(fileProgress.getProgressPercent()))
+                    .lastReadTime(fileProgress.getLastReadTime())
                     .build());
         }
     }
