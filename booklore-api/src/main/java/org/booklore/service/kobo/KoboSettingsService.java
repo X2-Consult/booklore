@@ -29,7 +29,13 @@ public class KoboSettingsService {
     private final ShelfService shelfService;
     private final HardcoverSyncSettingsService hardcoverSyncSettingsService;
 
-    @Transactional(readOnly = true)
+    // Not read-only: a user opening this for the first time has no settings row yet, and
+    // the fallback below (initDefaultSettings) writes one plus a default shelf. A readOnly
+    // transaction here has PostgreSQL reject that write outright ("cannot execute INSERT in
+    // a read-only transaction") - Spring's readOnly hint isn't just advisory once the JDBC
+    // driver enforces it at the database level. Mockito-based unit tests can't catch this
+    // since they don't exercise real transactions.
+    @Transactional
     public KoboSyncSettings getCurrentUserSettings() {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
         KoboUserSettingsEntity entity = repository.findByUserId(user.getId())
