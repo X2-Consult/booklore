@@ -44,7 +44,9 @@ import org.booklore.service.audit.AuditService;
 public class FileUploadService {
 
     private static final String UPLOAD_TEMP_PREFIX = "upload-";
-    private static final String BOOKDROP_TEMP_PREFIX = "bookdrop-";
+    // Leading dot so the bookdrop folder watcher (FileUtils.shouldIgnore) treats the
+    // in-progress upload as a hidden file and never mistakes it for a new drop.
+    private static final String BOOKDROP_TEMP_PREFIX = ".bookdrop-";
     private static final long BYTES_TO_KB_DIVISOR = 1024L;
     private static final long MB_TO_BYTES_MULTIPLIER = 1024L * 1024L;
 
@@ -220,7 +222,13 @@ public class FileUploadService {
         Path tempPath = null;
 
         try {
-            tempPath = createTempFile(BOOKDROP_TEMP_PREFIX, sanitizedFilename);
+            // Write the temp file directly inside the bookdrop folder (not the system tmpdir),
+            // so the final move is a same-filesystem rename instead of a cross-device copy.
+            // This avoids exhausting the container's own (often small) root disk on large
+            // uploads, and keeps disk-space checks honest against the volume that actually
+            // has to hold the file. The leading dot on the filename keeps it hidden from the
+            // bookdrop folder watcher (see FileUtils.shouldIgnore) until the move completes.
+            tempPath = createTempFile(dropFolder, BOOKDROP_TEMP_PREFIX, sanitizedFilename);
             file.transferTo(tempPath);
 
             final Path finalPath = dropFolder.resolve(sanitizedFilename);
@@ -281,9 +289,24 @@ public class FileUploadService {
         return Files.createTempFile(prefix, suffix);
     }
 
+    /**
+     * Same as {@link #createTempFile(String, String)}, but creates the temp file inside the
+     * given directory instead of the system tmpdir, so a subsequent move into that same
+     * directory (or a subdirectory of it) is a cheap same-filesystem rename rather than a
+     * full copy across potentially different filesystems/volumes.
+     */
+    private Path createTempFile(Path directory, String prefix, String fileName) throws IOException {
+        String suffix = "";
+        int lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex >= 0) {
+            suffix = fileName.substring(lastDotIndex);
+        }
+        return Files.createTempFile(directory, prefix, suffix);
+    }
+
     private void validateFinalPath(Path finalPath) {
         if (Files.exists(finalPath)) {
-            throw ApiError.FILE_ALREADY_EXISTS.createException();
+            throw ApiError.FILE_ALREADY_EXISTS.createException(finalPath.getFileName());
         }
     }
 

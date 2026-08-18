@@ -122,7 +122,7 @@ class FileUploadServiceTest {
                 .isThrownBy(() -> service.uploadFileBookDrop(file))
                 .satisfies(ex -> {
                     assertThat(ex.getStatus()).isEqualTo(ApiError.FILE_ALREADY_EXISTS.getStatus());
-                    assertThat(ex.getMessage()).isEqualTo(ApiError.FILE_ALREADY_EXISTS.getMessage());
+                    assertThat(ex.getMessage()).contains("dup.epub");
                 });
     }
 

@@ -105,9 +105,17 @@ export class GlobalPreferencesComponent implements OnInit {
     this.saveSetting(AppSettingKey.COVER_CROPPING_SETTINGS, this.coverCroppingSettings);
   }
 
+  // Must match MultipartConfig.MAX_UPLOAD_SIZE_MB on the server - the hard ceiling the
+  // servlet container enforces before this setting's own validation ever runs.
+  private readonly MAX_UPLOAD_SIZE_HARD_CAP_MB = 10240;
+
   saveFileSize() {
     if (!this.maxFileUploadSizeInMb || this.maxFileUploadSizeInMb <= 0) {
       this.showMessage('error', this.t.translate('settingsApp.fileManagement.invalidInput'), this.t.translate('settingsApp.fileManagement.invalidInputDetail'));
+      return;
+    }
+    if (this.maxFileUploadSizeInMb > this.MAX_UPLOAD_SIZE_HARD_CAP_MB) {
+      this.showMessage('error', this.t.translate('settingsApp.fileManagement.invalidInput'), `Value cannot exceed the server's hard limit of ${this.MAX_UPLOAD_SIZE_HARD_CAP_MB} MB`);
       return;
     }
     this.saveSetting(AppSettingKey.MAX_FILE_UPLOAD_SIZE_IN_MB, this.maxFileUploadSizeInMb);

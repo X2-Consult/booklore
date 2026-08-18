@@ -2,6 +2,7 @@ package org.booklore.service.appsettings;
 
 import jakarta.transaction.Transactional;
 import org.booklore.config.AppProperties;
+import org.booklore.config.MultipartConfig;
 import org.booklore.config.security.service.AuthenticationService;
 import org.booklore.exception.ApiError;
 import org.booklore.model.dto.BookLoreUser;
@@ -70,6 +71,10 @@ public class AppSettingService {
             validateOidcForceOnlyMode(val);
         }
 
+        if (key == AppSettingKey.MAX_FILE_UPLOAD_SIZE_IN_MB) {
+            validateMaxFileUploadSize(val);
+        }
+
         var setting = settingPersistenceHelper.appSettingsRepository.findByName(key.toString());
         if (setting == null) {
             setting = new AppSettingEntity();
@@ -99,6 +104,22 @@ public class AppSettingService {
         if (details == null || details.getIssuerUri() == null || details.getIssuerUri().isBlank()
                 || details.getClientId() == null || details.getClientId().isBlank()) {
             throw ApiError.GENERIC_BAD_REQUEST.createException("Cannot enable OIDC-only mode: OIDC must be configured with issuer URI and client ID");
+        }
+    }
+
+    private void validateMaxFileUploadSize(Object val) {
+        int mb;
+        try {
+            mb = Integer.parseInt(String.valueOf(val));
+        } catch (NumberFormatException e) {
+            throw ApiError.GENERIC_BAD_REQUEST.createException("Max file upload size must be a whole number of MB");
+        }
+        if (mb <= 0) {
+            throw ApiError.GENERIC_BAD_REQUEST.createException("Max file upload size must be greater than 0 MB");
+        }
+        if (mb > MultipartConfig.MAX_UPLOAD_SIZE_MB) {
+            throw ApiError.GENERIC_BAD_REQUEST.createException(
+                    "Max file upload size cannot exceed the server's hard limit of " + MultipartConfig.MAX_UPLOAD_SIZE_MB + " MB");
         }
     }
 
