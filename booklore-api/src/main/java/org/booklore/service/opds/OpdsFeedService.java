@@ -549,14 +549,21 @@ public class OpdsFeedService {
     }
 
     /**
-     * Builds the entry's display title, appending a compact progress glyph + percentage
-     * (e.g. "◑ 42%") when the requesting user has unfinished progress on the book. Plain
-     * OPDS/Atom clients render this as ordinary title text, so no extension support is
-     * required to see it - the same trick Kavita's OPDS feed uses.
+     * Builds the entry's display title as "Title: Subtitle" when a subtitle is present
+     * (e.g. distinguishing per-volume subtitles under a shared series title), then appends
+     * a compact progress glyph + percentage (e.g. "◑ 42%") when the requesting user has
+     * unfinished progress on the book. Plain OPDS/Atom clients render all of this as
+     * ordinary title text, so no extension support is required to see it - the same trick
+     * Kavita's OPDS feed uses.
      */
     private String buildEntryTitle(Book book) {
         String title = book.getMetadata() != null && book.getMetadata().getTitle() != null
                 ? book.getMetadata().getTitle() : "";
+
+        String subtitle = book.getMetadata() != null ? book.getMetadata().getSubtitle() : null;
+        if (subtitle != null && !subtitle.isBlank()) {
+            title = title + ": " + subtitle;
+        }
 
         Float percentage = resolveProgressPercent(book);
         if (percentage == null || percentage <= 0f) {
