@@ -1,15 +1,21 @@
 package org.booklore.repository;
 
 import org.booklore.model.entity.BookFileEntity;
+import org.booklore.model.enums.BookFileType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface BookFileRepository extends JpaRepository<BookFileEntity, Long> {
+
+    @Query("SELECT bf FROM BookFileEntity bf JOIN FETCH bf.book b JOIN FETCH b.libraryPath WHERE bf.bookType IN :bookTypes")
+    List<BookFileEntity> findAllWithBookAndLibraryPathByBookTypeIn(@Param("bookTypes") Collection<BookFileType> bookTypes);
 
     @Query("""
             SELECT bf FROM BookFileEntity bf

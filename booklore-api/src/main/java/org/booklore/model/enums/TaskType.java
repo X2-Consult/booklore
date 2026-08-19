@@ -58,6 +58,14 @@ public enum TaskType {
             true,
             "Refresh Metadata",
             "Updates metadata information for your selected books."
+    ),
+    CHECK_EBOOK_INTEGRITY(
+            false,
+            true,
+            true,
+            false,
+            "Check EBook Integrity",
+            "Verifies EPUB and CBZ files aren't corrupted (checks every entry's checksum, not just the file header) and logs any that need to be re-imported."
     );
 
     @Getter
