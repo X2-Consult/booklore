@@ -226,8 +226,7 @@ public class EpubMetadataWriter implements MetadataWriter {
                     addFolderContentsToZip(tempZipFile, tempDir.toFile(), tempDir.toFile());
                 }
 
-                if (!epubFile.delete()) throw new IOException("Could not delete original EPUB");
-                if (!tempEpub.renameTo(epubFile)) throw new IOException("Could not rename temp EPUB");
+                atomicReplace(tempEpub, epubFile);
 
                 log.info("Metadata updated in EPUB: {}", epubFile.getName());
             } else {
@@ -384,8 +383,7 @@ public class EpubMetadataWriter implements MetadataWriter {
                 addFolderContentsToZip(tempZipFile, tempDir.toFile(), tempDir.toFile());
             }
 
-            if (!epubFile.delete()) throw new IOException("Could not delete original EPUB");
-            if (!tempEpub.renameTo(epubFile)) throw new IOException("Could not rename temp EPUB");
+            atomicReplace(tempEpub, epubFile);
 
             log.info("Cover image updated in EPUB from {}: {}", source, epubFile.getName());
 
@@ -704,6 +702,21 @@ public class EpubMetadataWriter implements MetadataWriter {
             return meta.getAttribute("content");
         }
         return null;
+    }
+
+    // Readers stream directly from disk (FileStreamingService), so swapping in the rewritten
+    // EPUB must never leave a window where the path is missing or points at a partial file.
+    // delete()-then-renameTo() is two separate filesystem operations; a concurrent reader
+    // landing between them gets a spurious "not found". A single move is what POSIX rename(2)
+    // guarantees is atomic, so prefer ATOMIC_MOVE and only fall back when the filesystem can't
+    // provide it (e.g. the temp file ended up on a different filesystem than the target).
+    private void atomicReplace(File tempFile, File targetFile) throws IOException {
+        try {
+            Files.move(tempFile.toPath(), targetFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private void deleteDirectoryRecursively(Path dir) {
