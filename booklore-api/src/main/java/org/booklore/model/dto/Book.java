@@ -20,6 +20,7 @@ public class Book {
     private String title;
     private Instant lastReadTime;
     private Instant addedOn;
+    private Instant metadataUpdatedAt;
     private BookMetadata metadata;
     private Float metadataMatchScore;
     private PdfProgress pdfProgress;
