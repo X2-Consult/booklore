@@ -9,7 +9,7 @@ export class ReaderStyleService {
   private epubCustomFontService = inject(EpubCustomFontService);
 
   generateCSS(state: ReaderState): string {
-    const {lineHeight, justify, hyphenate, fontSize, theme, fontFamily} = state;
+    const {lineHeight, justify, hyphenate, fontSize, theme, fontFamily, isDark} = state;
     const userStylesheet = '';
     const overrideFont = false;
     const mediaActiveClass = 'media-active';
@@ -46,6 +46,10 @@ export class ReaderStyleService {
             font-family: inherit !important;
         }` : '';
 
+    const resolvedFg = theme.fg || (isDark ? theme.dark.fg : theme.light.fg);
+    const resolvedBg = theme.bg || (isDark ? theme.dark.bg : theme.light.bg);
+    const resolvedLink = theme.link || (isDark ? theme.dark.link : theme.light.link);
+
     return `
       ${fontFaceRule}
       @namespace epub "http://www.idpf.org/2007/ops";
@@ -58,27 +62,21 @@ export class ReaderStyleService {
       }
       @media screen {
           html {
-              color-scheme: light dark;
-              color: ${theme.fg || theme.light.fg};
+              color-scheme: ${isDark ? 'dark' : 'light'};
+              color: ${resolvedFg};
+              background: ${resolvedBg};
               font-size: ${fontSize}px;
           }${fontFamilyRule}
+          body {
+              background: ${resolvedBg};
+          }
           a:any-link {
-              color: ${theme.link || theme.light.link};
-              text-decoration-color: light-dark(
-                  color-mix(in srgb, currentColor 20%, transparent),
-                  color-mix(in srgb, currentColor 40%, transparent));
+              color: ${resolvedLink};
+              text-decoration-color: color-mix(in srgb, currentColor ${isDark ? 40 : 20}%, transparent);
               text-underline-offset: .1em;
           }
           a:any-link:hover {
               text-decoration-color: unset;
-          }
-          @media (prefers-color-scheme: dark) {
-              html {
-                  color: ${theme.fg || theme.dark.fg};
-              }
-              a:any-link {
-                  color: ${theme.link || theme.dark.link};
-              }
           }
           aside[epub|type~="footnote"] {
               display: none;
@@ -105,49 +103,29 @@ export class ReaderStyleService {
           white-space: pre-wrap !important;
           tab-size: 2;
       }
-      @media screen and (prefers-color-scheme: light) {
-          ${(theme.bg || theme.light.bg) !== '#ffffff' ? `
+      @media screen {
+          ${resolvedBg !== '#ffffff' ? `
           html, body {
-              color: ${theme.fg || theme.light.fg} !important;
-              background: none !important;
+              color: ${resolvedFg} !important;
+              background: ${resolvedBg} !important;
           }
           body * {
               color: inherit !important;
               border-color: currentColor !important;
-              background-color: ${theme.bg || theme.light.bg} !important;
+              background-color: ${resolvedBg} !important;
           }
           a:any-link {
-              color: ${theme.link || theme.light.link} !important;
+              color: ${resolvedLink} !important;
           }
           svg, img {
               background-color: transparent !important;
-              mix-blend-mode: multiply;
+              ${!isDark ? 'mix-blend-mode: multiply;' : ''}
           }
           .${mediaActiveClass}, .${mediaActiveClass} * {
-              color: ${theme.fg || theme.light.fg} !important;
-              background: color-mix(in hsl, ${theme.fg || theme.light.fg}, #fff 50%) !important;
-              background: color-mix(in hsl, ${theme.fg || theme.light.fg}, ${theme.bg || theme.light.bg} 85%) !important;
+              color: ${resolvedFg} !important;
+              background: color-mix(in hsl, ${resolvedFg}, ${isDark ? '#000' : '#fff'} 50%) !important;
+              background: color-mix(in hsl, ${resolvedFg}, ${resolvedBg} ${isDark ? 75 : 85}%) !important;
           }` : ''}
-      }
-      @media screen and (prefers-color-scheme: dark) {
-
-          html, body {
-              color: ${theme.fg || theme.dark.fg} !important;
-              background: none !important;
-          }
-          body * {
-              color: inherit !important;
-              border-color: currentColor !important;
-              background-color: ${theme.bg || theme.dark.bg} !important;
-          }
-          a:any-link {
-              color: ${theme.link || theme.dark.link} !important;
-          }
-          .${mediaActiveClass}, .${mediaActiveClass} * {
-              color: ${theme.fg || theme.dark.fg} !important;
-              background: color-mix(in hsl, ${theme.fg || theme.dark.fg}, #000 50%) !important;
-              background: color-mix(in hsl, ${theme.fg || theme.dark.fg}, ${theme.bg || theme.dark.bg} 75%) !important;
-          }
       }
       p, li, blockquote, dd {
           line-height: ${lineHeight};
