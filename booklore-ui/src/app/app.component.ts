@@ -19,6 +19,7 @@ import {LibraryHealthService} from './features/book/service/library-health.servi
 import {LibraryLoadingService} from './features/library-creator/library-loading.service';
 import {scan, withLatestFrom} from 'rxjs/operators';
 import {AuthService} from './shared/service/auth.service';
+import {PwaUpdateService} from './shared/service/pwa-update.service';
 
 @Component({
   selector: 'app-root',
@@ -35,6 +36,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private subscriptionsInitialized = false;
 
   private appConfigService = inject(AppConfigService); // DO NOT REMOVE: Used to initialize app config on startup
+  private pwaUpdateService = inject(PwaUpdateService); // DO NOT REMOVE: Watches for and applies PWA updates
   private authInit = inject(AuthInitializationService);
   private bookService = inject(BookService);
   private rxStompService = inject(RxStompService);
