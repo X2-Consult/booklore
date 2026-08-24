@@ -331,7 +331,8 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
                     .publishedDate(convertToLocalDate(detailsJson.optString("publicationTime")))
                     .publisher(normalizeNull(detailsJson.optString("publisher")))
                     .isbn10(normalizeNull(detailsJson.optString("isbn")))
-                    .isbn13(normalizeNull(detailsJson.optString("isbn13")));
+                    .isbn13(normalizeNull(detailsJson.optString("isbn13")))
+                    .asin(normalizeNull(detailsJson.optString("asin")));
 
             JSONObject languageJson = detailsJson.optJSONObject("language");
             if (languageJson != null) {
