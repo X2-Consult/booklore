@@ -41,7 +41,7 @@ export class MetadataAdvancedFetchOptionsComponent implements OnChanges {
   ];
 
   providerSpecificFields: (keyof FieldOptions)[] = [
-    'asin', 'amazonRating', 'amazonReviewCount',
+    'amazonRating', 'amazonReviewCount',
     'googleId',
     'goodreadsId', 'goodreadsRating', 'goodreadsReviewCount',
     'hardcoverId', 'hardcoverBookId', 'hardcoverRating', 'hardcoverReviewCount', 'moods', 'tags',
@@ -53,7 +53,7 @@ export class MetadataAdvancedFetchOptionsComponent implements OnChanges {
 
   nonProviderSpecificFields: (keyof FieldOptions)[] = [
     'title', 'subtitle', 'description', 'authors', 'publisher', 'publishedDate',
-    'seriesName', 'seriesNumber', 'seriesTotal', 'isbn13', 'isbn10',
+    'seriesName', 'seriesNumber', 'seriesTotal', 'isbn13', 'isbn10', 'asin',
     'language', 'categories', 'cover', 'pageCount',
   ];
 
@@ -88,7 +88,7 @@ export class MetadataAdvancedFetchOptionsComponent implements OnChanges {
 
   private providerSpecificFieldsList = [
     // Amazon
-    'asin', 'amazonRating', 'amazonReviewCount',
+    'amazonRating', 'amazonReviewCount',
 
     // Google
     'googleId',
@@ -268,7 +268,7 @@ export class MetadataAdvancedFetchOptionsComponent implements OnChanges {
       'pageCount': 'Page Count',
       'rating': 'Rating',
       'reviewCount': 'Review Count',
-      'asin': 'Amazon ASIN',
+      'asin': 'ASIN',
       'goodreadsId': 'Goodreads ID',
       'comicvineId': 'Comicvine ID',
       'hardcoverId': 'Hardcover ID',

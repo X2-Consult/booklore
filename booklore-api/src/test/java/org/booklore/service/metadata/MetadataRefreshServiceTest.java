@@ -960,6 +960,49 @@ class MetadataRefreshServiceTest {
         }
 
         @Test
+        void asinFromGoodReadsProvider_whenNoPriorityConfigured() {
+            // ASIN is no longer Amazon-exclusive -- GoodReads/OpenLibrary/Hardcover can supply
+            // it too. With no p1-p4 priority configured for asin (e.g. settings saved before it
+            // became multi-provider), any fetched provider's asin should still be picked up.
+            Map<MetadataProvider, BookMetadata> metadataMap = new HashMap<>();
+            metadataMap.put(MetadataProvider.GoodReads, BookMetadata.builder()
+                    .asin("B0DN8P5BQF")
+                    .build());
+
+            MetadataRefreshOptions options = MetadataRefreshOptions.builder()
+                    .fieldOptions(new MetadataRefreshOptions.FieldOptions())
+                    .enabledFields(new MetadataRefreshOptions.EnabledFields())
+                    .build();
+
+            BookMetadata result = service.buildFetchMetadata(null, 1L, options, metadataMap);
+
+            assertThat(result.getAsin()).isEqualTo("B0DN8P5BQF");
+        }
+
+        @Test
+        void asinFromGoodReadsProvider_whenExplicitlyPrioritized() {
+            Map<MetadataProvider, BookMetadata> metadataMap = new HashMap<>();
+            metadataMap.put(MetadataProvider.Amazon, BookMetadata.builder()
+                    .asin("B_AMAZON").build());
+            metadataMap.put(MetadataProvider.GoodReads, BookMetadata.builder()
+                    .asin("B_GOODREADS").build());
+
+            MetadataRefreshOptions options = MetadataRefreshOptions.builder()
+                    .fieldOptions(MetadataRefreshOptions.FieldOptions.builder()
+                            .asin(MetadataRefreshOptions.FieldProvider.builder()
+                                    .p1(MetadataProvider.GoodReads)
+                                    .p2(MetadataProvider.Amazon)
+                                    .build())
+                            .build())
+                    .enabledFields(new MetadataRefreshOptions.EnabledFields())
+                    .build();
+
+            BookMetadata result = service.buildFetchMetadata(null, 1L, options, metadataMap);
+
+            assertThat(result.getAsin()).isEqualTo("B_GOODREADS");
+        }
+
+        @Test
         void replaceAll_preservesExistingProviderFields_whenDisabled() {
             BookMetadata existing = BookMetadata.builder()
                     .amazonRating(3.5)

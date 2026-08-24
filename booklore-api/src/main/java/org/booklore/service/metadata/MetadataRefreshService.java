@@ -581,9 +581,18 @@ public class MetadataRefreshService {
         }
 
         if (enabledFields.isAsin()) {
-            if (metadataMap.containsKey(Amazon)) {
-                metadata.setAsin(metadataMap.get(Amazon).getAsin());
+            String asin = resolveFieldAsString(metadataMap, fieldOptions.getAsin(), BookMetadata::getAsin);
+            if (asin == null) {
+                // No provider priority configured for ASIN (e.g. settings saved before ASIN
+                // became a multi-provider field) -- fall back to any fetched provider that
+                // returned one, rather than silently dropping it.
+                asin = metadataMap.values().stream()
+                        .map(BookMetadata::getAsin)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
             }
+            metadata.setAsin(asin);
         } else if (isReplaceAll && existingMetadata != null) {
             metadata.setAsin(existingMetadata.getAsin());
         }
