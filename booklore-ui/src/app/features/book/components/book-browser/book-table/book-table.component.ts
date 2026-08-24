@@ -73,6 +73,7 @@ export class BookTableComponent implements OnInit, OnDestroy, OnChanges {
     {field: 'fileSizeKb', header: this.t.translate('book.columnPref.columns.fileSizeKb')},
     {field: 'language', header: this.t.translate('book.columnPref.columns.language')},
     {field: 'isbn', header: this.t.translate('book.columnPref.columns.isbn')},
+    {field: 'asin', header: this.t.translate('book.columnPref.columns.asin')},
     {field: 'pageCount', header: this.t.translate('book.columnPref.columns.pageCount')},
     {field: 'amazonRating', header: this.t.translate('book.columnPref.columns.amazonRating')},
     {field: 'amazonReviewCount', header: this.t.translate('book.columnPref.columns.amazonReviewCount')},
@@ -249,6 +250,14 @@ export class BookTableComponent implements OnInit, OnDestroy, OnChanges {
             anchor: this.getCellValue(metadata, book, 'isbn')
           }
         ];
+
+      case 'asin':
+        return [
+          {
+            url: '',
+            anchor: this.getCellValue(metadata, book, 'asin')
+          }
+        ];
     }
 
     return data.map(item => {
@@ -318,6 +327,9 @@ export class BookTableComponent implements OnInit, OnDestroy, OnChanges {
 
       case 'isbn':
         return metadata.isbn13 || metadata.isbn10 || '';
+
+      case 'asin':
+        return metadata.asin ?? '';
 
       default:
         return '';

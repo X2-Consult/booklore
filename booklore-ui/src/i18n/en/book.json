@@ -323,6 +323,7 @@
       "fileSizeKb": "File Size",
       "language": "Language",
       "isbn": "ISBN",
+      "asin": "ASIN",
       "pageCount": "Pages",
       "amazonRating": "Amazon",
       "amazonReviewCount": "AZ #",
