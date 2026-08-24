@@ -292,6 +292,7 @@ public class HardcoverParser implements BookParser {
 
         metadata.setIsbn10(edition.getIsbn10());
         metadata.setIsbn13(edition.getIsbn13());
+        metadata.setAsin(edition.getAsin());
 
         // If only one ISBN is provided, calculate the other
         if (metadata.getIsbn10() != null && metadata.getIsbn13() == null) {

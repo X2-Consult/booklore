@@ -29,5 +29,7 @@ public class OpenLibraryApiResponse {
         @JsonProperty("number_of_pages_median")
         private Integer numberOfPagesMedian;
         private List<String> subject;
+        @JsonProperty("id_amazon")
+        private List<String> idAmazon;
     }
 }

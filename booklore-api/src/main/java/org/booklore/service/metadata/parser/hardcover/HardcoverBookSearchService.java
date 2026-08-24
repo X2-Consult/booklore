@@ -86,6 +86,7 @@ public class HardcoverBookSearchService {
                           }
                           isbn_10
                           isbn_13
+                          asin
                           language {
                             code2
                           }

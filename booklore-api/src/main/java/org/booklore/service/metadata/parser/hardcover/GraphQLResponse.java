@@ -234,6 +234,8 @@ public class GraphQLResponse {
         @JsonProperty("isbn_13")
         private String isbn13;
 
+        private String asin;
+
         private Language language;
     }
 

@@ -36,7 +36,10 @@ public class OpenLibraryParser implements BookParser {
 
     private static final String BASE_URL = "https://openlibrary.org";
     private static final String COVERS_BASE_URL = "https://covers.openlibrary.org";
-    private static final String SEARCH_FIELDS = "key,title,author_name,first_publish_year,isbn,cover_i,publisher,language,number_of_pages_median,subject";
+    private static final String SEARCH_FIELDS = "key,title,author_name,first_publish_year,isbn,cover_i,publisher,language,number_of_pages_median,subject,id_amazon";
+    // Open Library's id_amazon field mixes genuine ASINs in with plain ISBN-10s Amazon also
+    // catalogs by; only the "B0..." shape is a real, non-ISBN Amazon identifier.
+    private static final Pattern ASIN_PATTERN = Pattern.compile("^B0[0-9A-Z]{8}$");
     private static final int SEARCH_LIMIT = 10;
     private static final int SUBJECT_LIMIT = 10;
     private static final Pattern WORK_PREFIX = Pattern.compile("^/works/");
@@ -184,7 +187,20 @@ public class OpenLibraryParser implements BookParser {
                 .categories(cleanSubjects(doc.getSubject()))
                 .thumbnailUrl(coverUrl(doc.getCoverI()))
                 .externalUrl(workId == null ? null : BASE_URL + "/works/" + workId)
+                .asin(extractAsin(doc.getIdAmazon()))
                 .build();
+    }
+
+    private String extractAsin(List<String> idAmazon) {
+        if (idAmazon == null) {
+            return null;
+        }
+        return idAmazon.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(id -> ASIN_PATTERN.matcher(id).matches())
+                .findFirst()
+                .orElse(null);
     }
 
     private BookMetadata mapWork(OpenLibraryWorkResponse work) {
