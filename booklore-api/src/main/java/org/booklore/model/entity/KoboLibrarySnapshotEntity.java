@@ -26,4 +26,11 @@ public class KoboLibrarySnapshotEntity {
 
     @OneToMany(mappedBy = "snapshot", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<KoboSnapshotBookEntity> books;
+
+    @PrePersist
+    public void prePersist() {
+        if (createdDate == null) {
+            createdDate = LocalDateTime.now();
+        }
+    }
 }
