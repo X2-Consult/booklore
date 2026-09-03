@@ -24,10 +24,12 @@ import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -237,6 +239,15 @@ public class RanobeDbParser implements BookParser {
                         .map(genre -> Pattern.compile("\\b(.)(.*?)\\b").matcher(genre).replaceAll(m -> m.group(1).toUpperCase() + m.group(2).toLowerCase()))
                         .collect(Collectors.toCollection(HashSet::new)) : new HashSet<>();
 
+                Integer pageCount = Stream.concat(
+                                Stream.ofNullable(englishRelease),
+                                book.getReleases().stream())
+                        .filter(Objects::nonNull)
+                        .map(RanobedbBookResponse.Release::getPages)
+                        .filter(pages -> pages != null && pages > 0)
+                        .findFirst()
+                        .orElse(null);
+
                 String title = englishTitleEntry != null ? englishTitleEntry.getTitle() : book.getTitle();
                 String subtitle = null;
                 if (book.getSeries() != null && book.getSeries().getTitle() != null && title.startsWith(book.getSeries().getTitle())) {
@@ -264,6 +275,7 @@ public class RanobeDbParser implements BookParser {
                     .seriesNumber(seriesIndex != -1 ? seriesIndex + 1.0f : null)
                     .seriesTotal(seriesBooks.isEmpty() ? null : seriesBooks.size())
                     .publishedDate(englishRelease != null ? parseDate(englishRelease.getReleaseDate()) : parseDate(book.getCReleaseDate()))
+                    .pageCount(pageCount)
                     .build();
             } else {
                 log.error("Ranobedb Get Book API returned status code {}", response.statusCode());

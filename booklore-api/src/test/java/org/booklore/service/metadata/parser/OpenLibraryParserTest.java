@@ -123,6 +123,12 @@ class OpenLibraryParserTest {
                   "subjects": ["Work Subject", "Another Subject"],
                   "covers": [98765]
                 }
+                """,
+                """
+                {
+                  "key": "/books/OL1M",
+                  "number_of_pages": 321
+                }
                 """
         );
 
@@ -137,7 +143,8 @@ class OpenLibraryParserTest {
         assertEquals("1234567890", metadata.getIsbn10());
         assertTrue(metadata.getCategories().contains("Work Subject"));
         assertEquals("https://covers.openlibrary.org/b/id/98765-L.jpg", metadata.getThumbnailUrl());
-        verify(httpClient, times(2)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+        assertEquals(321, metadata.getPageCount());
+        verify(httpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
     }
 
     @Test

@@ -48,6 +48,11 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
     private static final int COUNT_DETAILED_METADATA_TO_GET = 3;
     private static final String BASE_BOOK_URL_SUFFIX = "/dp/";
     private static final Pattern NON_DIGIT_PATTERN = Pattern.compile("[^\\d]");
+    // Matches "352 pages" / "352 Seiten" / "352 páginas" / "352 ページ" / "352 页" etc. in the
+    // "Print length" (or format-bound "Hardcover"/"Paperback") line of Amazon's detail bullets.
+    private static final Pattern PAGE_COUNT_TEXT_PATTERN = Pattern.compile(
+            "(\\d[\\d.,]*)\\s*(?:pages?|seiten|p\\u00e1ginas?|pagine|pagina's|stron[aey]?|\\u30da\\u30fc\\u30b8|\\u9801|\\u9875)",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern SERIES_FORMAT_PATTERN = Pattern.compile("Book (\\d+(?:\\.\\d+)?) of (\\d+)");
     private static final Pattern PARENTHESES_WITH_WHITESPACE_PATTERN = Pattern.compile("\\s*\\(.*?\\)");
     private static final Pattern NON_ALPHANUMERIC_PATTERN = Pattern.compile("[^\\p{L}\\p{M}0-9]");
@@ -774,19 +779,61 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
     }
 
     private Integer getPageCount(Document doc) {
-        Elements pageCountElements = doc.select("#rpi-attribute-book_details-fiona_pages .rpi-attribute-value span");
-        if (!pageCountElements.isEmpty()) {
-            String pageCountText = pageCountElements.first().text();
-            if (!pageCountText.isEmpty()) {
+        // Layout 1: the Rich Product Information carousel. This selector is unambiguous, so
+        // accept a bare number ("352") as well as "352 pages".
+        Element rpiValue = doc.select("#rpi-attribute-book_details-fiona_pages .rpi-attribute-value span").first();
+        if (rpiValue != null && !rpiValue.text().isEmpty()) {
+            Integer pages = parsePageCountText(rpiValue.text());
+            if (pages == null) {
                 try {
-                    String cleanedPageCount = NON_DIGIT_PATTERN.matcher(pageCountText).replaceAll("");
-                    return Integer.parseInt(cleanedPageCount);
+                    String digits = NON_DIGIT_PATTERN.matcher(rpiValue.text()).replaceAll("");
+                    pages = digits.isEmpty() ? null : Integer.parseInt(digits);
                 } catch (NumberFormatException e) {
-                    log.warn("Error parsing page count: {}, error: {}", pageCountText, e.getMessage());
+                    log.warn("Error parsing page count: {}, error: {}", rpiValue.text(), e.getMessage());
                 }
             }
+            if (pages != null && pages > 0) return pages;
         }
+
+        // Layout 2: the "Product details" bullet list. The page count may sit under an
+        // explicit "Print length" label or be bound to the format line ("Hardcover : 352 pages"),
+        // and the label is localized, so match on the "<n> pages" value shape instead.
+        for (String containerId : new String[]{"detailBullets_feature_div", "detailBulletsWrapper_feature_div"}) {
+            Element container = doc.getElementById(containerId);
+            if (container == null) continue;
+            for (Element listItem : container.select("li")) {
+                Integer pages = parsePageCountText(listItem.text());
+                if (pages != null) return pages;
+            }
+        }
+
+        // Layout 3: the older "Product Details" table.
+        Element detailsTable = doc.getElementById("productDetailsTable");
+        if (detailsTable != null) {
+            Integer pages = parsePageCountText(detailsTable.text());
+            if (pages != null) return pages;
+        }
+
         return null;
+    }
+
+    private Integer parsePageCountText(String text) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        Matcher matcher = PAGE_COUNT_TEXT_PATTERN.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        try {
+            String digits = NON_DIGIT_PATTERN.matcher(matcher.group(1)).replaceAll("");
+            if (digits.isEmpty()) return null;
+            int pages = Integer.parseInt(digits);
+            return pages > 0 ? pages : null;
+        } catch (NumberFormatException e) {
+            log.warn("Error parsing page count: {}, error: {}", text, e.getMessage());
+            return null;
+        }
     }
 
     private Document fetchDocument(String url) {

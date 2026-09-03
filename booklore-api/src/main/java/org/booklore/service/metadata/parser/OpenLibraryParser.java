@@ -44,6 +44,9 @@ public class OpenLibraryParser implements BookParser {
     private static final int SUBJECT_LIMIT = 10;
     private static final Pattern WORK_PREFIX = Pattern.compile("^/works/");
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+    // "number_of_pages" is edition-level and absent from search/work responses; "pagination"
+    // is free text like "xvi, 348 p." - pull the last run of digits from it as a fallback.
+    private static final Pattern PAGINATION_DIGITS_PATTERN = Pattern.compile("(\\d+)(?!.*\\d)");
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -110,7 +113,67 @@ public class OpenLibraryParser implements BookParser {
         }
 
         BookMetadata workMetadata = fetchWorkMetadata(workId);
-        return workMetadata == null ? top : merge(top, workMetadata);
+        BookMetadata result = workMetadata == null ? top : merge(top, workMetadata);
+
+        if (result.getPageCount() == null || result.getPageCount() <= 0) {
+            Integer editionPageCount = fetchEditionPageCount(firstNonBlank(
+                    ParserUtils.cleanIsbn(fetchMetadataRequest.getIsbn()),
+                    firstNonBlank(result.getIsbn13(), result.getIsbn10())));
+            if (editionPageCount != null) {
+                result = result.toBuilder().pageCount(editionPageCount).build();
+            }
+        }
+
+        return result;
+    }
+
+    private Integer fetchEditionPageCount(String isbn) {
+        if (isbn == null || isbn.isBlank()) {
+            return null;
+        }
+        URI uri = URI.create(BASE_URL + "/isbn/" + isbn + ".json");
+        try {
+            log.info("Open Library edition API URL: {}", uri);
+            HttpResponse<String> response = httpClient.send(
+                    HttpRequest.newBuilder().uri(uri).GET().build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            if (response.statusCode() != 200) {
+                log.debug("Open Library edition request failed. Status: {}", response.statusCode());
+                return null;
+            }
+
+            var node = objectMapper.readTree(response.body());
+            if (node == null) {
+                return null;
+            }
+            if (node.has("number_of_pages") && node.get("number_of_pages").isNumber()) {
+                int pages = node.get("number_of_pages").asInt();
+                if (pages > 0) {
+                    return pages;
+                }
+            }
+            if (node.has("pagination")) {
+                var matcher = PAGINATION_DIGITS_PATTERN.matcher(node.get("pagination").asString(""));
+                if (matcher.find()) {
+                    int pages = Integer.parseInt(matcher.group(1));
+                    if (pages > 0) {
+                        return pages;
+                    }
+                }
+            }
+            return null;
+        } catch (IOException e) {
+            log.debug("IO error while fetching Open Library edition metadata: {}", e.getMessage());
+            return null;
+        } catch (InterruptedException e) {
+            log.debug("Open Library edition request was interrupted");
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (RuntimeException e) {
+            log.debug("Failed to parse Open Library edition page count: {}", e.getMessage());
+            return null;
+        }
     }
 
     private URI buildSearchUri(Book book, FetchMetadataRequest request) {

@@ -326,6 +326,14 @@ public class MetadataRefreshService {
         AppSettings appSettings = appSettingService.getAppSettings();
         Set<MetadataProvider> allProviders = EnumSet.noneOf(MetadataProvider.class);
         allProviders.addAll(getAllProvidersUsingIndividualFields(refreshOptions, appSettings));
+        // Bookshelf is an API-only source with no dedicated ID field, so it never gets pinned
+        // to a field-provider slot and would otherwise never be queried. Include it whenever
+        // it's enabled so it can contribute to fallback fields (e.g. page count).
+        if (appSettings.getMetadataProviderSettings() != null
+                && appSettings.getMetadataProviderSettings().getBookshelf() != null
+                && appSettings.getMetadataProviderSettings().getBookshelf().isEnabled()) {
+            allProviders.add(Bookshelf);
+        }
         return new ArrayList<>(allProviders);
     }
 
@@ -522,7 +530,7 @@ public class MetadataRefreshService {
         }
         
         if (enabledFields.isPageCount()) {
-            metadata.setPageCount(resolveFieldAsInteger(metadataMap, fieldOptions.getPageCount(), BookMetadata::getPageCount));
+            metadata.setPageCount(resolvePageCount(metadataMap, fieldOptions.getPageCount()));
         } else if (isReplaceAll && existingMetadata != null) {
             metadata.setPageCount(existingMetadata.getPageCount());
         }
@@ -701,6 +709,31 @@ public class MetadataRefreshService {
         }
 
         return metadata;
+    }
+
+    /**
+     * Page count is historically a single-provider field (the default priority is Amazon only),
+     * so a book whose configured provider(s) didn't return a count ends up with none even when
+     * another provider fetched in the same refresh did have it. Resolve by priority first, then
+     * fall back to any other fetched provider that returned a usable value - mirroring the ASIN
+     * fallback above. A non-positive count is treated as "missing".
+     */
+    private Integer resolvePageCount(Map<MetadataProvider, BookMetadata> metadataMap, MetadataRefreshOptions.FieldProvider fieldProvider) {
+        Integer resolved = resolveFieldWithProviders(metadataMap, fieldProvider, BookMetadata::getPageCount, this::isUsablePageCount);
+        if (isUsablePageCount(resolved)) {
+            return resolved;
+        }
+        return Arrays.stream(MetadataProvider.values())
+                .map(metadataMap::get)
+                .filter(Objects::nonNull)
+                .map(BookMetadata::getPageCount)
+                .filter(this::isUsablePageCount)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isUsablePageCount(Integer pageCount) {
+        return pageCount != null && pageCount > 0;
     }
 
     protected <T > T resolveField(Map < MetadataProvider, BookMetadata > metadataMap, MetadataRefreshOptions.FieldProvider fieldProvider, Function < BookMetadata, T > extractor) {
