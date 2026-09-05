@@ -144,8 +144,10 @@ fi
 LOCK_CHANGED=false
 if [ "$SKIP_PULL" = false ]; then
   log "Pulling latest changes..."
-  git fetch --tags --quiet || true
   BEFORE_LOCK="$(git rev-parse HEAD:booklore-ui/package-lock.json 2>/dev/null || true)"
+  # A single connection: git pull follows tags reachable from the branch it fetches,
+  # which is all git describe needs. (A separate `git fetch --tags` here just meant a
+  # second SSH handshake and a second key-passphrase prompt.)
   git pull --ff-only
   AFTER_LOCK="$(git rev-parse HEAD:booklore-ui/package-lock.json 2>/dev/null || true)"
   [ "$BEFORE_LOCK" != "$AFTER_LOCK" ] && LOCK_CHANGED=true
