@@ -191,6 +191,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # If this commit was pre-tagged (e.g. a maintainer ran `git tag v1.0.0` before
+          # promoting), honour that exact version and skip the automatic bump.
+          pinned_tag=$(git tag --points-at HEAD --list "v*" --sort=-v:refname | head -n 1)
+          if [ -n "$pinned_tag" ]; then
+            echo "HEAD is already tagged $pinned_tag - using it as-is, skipping version bump."
+            echo "bump=none" >> $GITHUB_ENV
+            echo "new_tag=$pinned_tag" >> $GITHUB_ENV
+            exit 0
+          fi
+
           echo "Determining version bump from PR labels..."
 
           # Extract PR number from merge commit
