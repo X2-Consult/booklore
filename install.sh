@@ -391,12 +391,29 @@ server {
     listen 80;
     server_name ${FQDN};
 
+    # --- Reverse-proxy settings BookLore needs (Kobo sync, in-app docs, OIDC) ---
+    # Kobo sends very large headers during a sync; the default 4k-8k proxy
+    # buffers reject them with "upstream sent too big header" (HTTP 502).
+    client_max_body_size 1000M;
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
+    large_client_header_buffers 8 32k;
+
+    # Forwarded headers, set once here and inherited by every location block.
+    # BookLore builds absolute URLs from these (Kobo download / library-sync
+    # links, OIDC redirects). Missing X-Forwarded-Proto -> http:// URLs behind
+    # an https site -> redirect loops.
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host \$host;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Forwarded-Port \$server_port;
+    # --------------------------------------------------------------------------
+
     location /api/ {
         proxy_pass http://localhost:${BACKEND_PORT};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     location /ws {
@@ -404,13 +421,18 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
+        # A location with its own proxy_set_header does NOT inherit the ones
+        # above, so the shared headers are repeated here.
         proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Port \$server_port;
     }
 
     location / {
         proxy_pass http://localhost:${SITE_TARGET_PORT};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
     }
 }
 EOF
