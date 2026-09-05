@@ -1,0 +1,1 @@
+ALTER TABLE "author" ADD COLUMN "openlibrary_id" VARCHAR(20) DEFAULT NULL;

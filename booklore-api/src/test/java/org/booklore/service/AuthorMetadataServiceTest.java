@@ -14,6 +14,7 @@ import org.booklore.service.audit.AuditService;
 import org.booklore.service.metadata.DuckDuckGoCoverService;
 import org.booklore.service.metadata.parser.AuthorParser;
 import org.booklore.service.metadata.parser.GoodReadsParser;
+import org.booklore.service.metadata.parser.OpenLibraryParser;
 import org.booklore.util.FileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ class AuthorMetadataServiceTest {
     @Mock private DuckDuckGoCoverService duckDuckGoCoverService;
     @Mock private AuthenticationService authenticationService;
     @Mock private GoodReadsParser goodReadsParser;
+    @Mock private OpenLibraryParser openLibraryParser;
 
     private AuthorMetadataService service;
 
@@ -51,7 +53,7 @@ class AuthorMetadataServiceTest {
         Map<AuthorMetadataSource, AuthorParser> authorParserMap = Map.of(
                 AuthorMetadataSource.AUDNEXUS, authorParser
         );
-        service = new AuthorMetadataService(authorRepository, authorParserMap, auditService, fileService, duckDuckGoCoverService, authenticationService, goodReadsParser);
+        service = new AuthorMetadataService(authorRepository, authorParserMap, auditService, fileService, duckDuckGoCoverService, authenticationService, goodReadsParser, openLibraryParser);
 
         BookLoreUser.UserPermissions adminPermissions = new BookLoreUser.UserPermissions();
         adminPermissions.setAdmin(true);
@@ -232,7 +234,38 @@ class AuthorMetadataServiceTest {
     }
 
     @Test
-    void matchAuthorFromLibrary_fillsDescriptionPhotoAndGoodreadsId() {
+    void matchAuthorFromLibrary_prefersOpenLibrary_andFillsAsinGoodreadsAndOpenLibraryIds() {
+        AuthorEntity author = new AuthorEntity();
+        author.setId(7L);
+        author.setName("Brandon Sanderson");
+
+        when(authorRepository.findById(7L)).thenReturn(Optional.of(author));
+        when(authorRepository.save(any(AuthorEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(openLibraryParser.fetchAuthor("Brandon Sanderson")).thenReturn(AuthorSearchResult.builder()
+                .source(AuthorMetadataSource.OPEN_LIBRARY)
+                .name("Brandon Sanderson")
+                .description("Brandon Sanderson is an American author of epic fantasy.")
+                .imageUrl("https://covers.openlibrary.org/a/id/6155669-L.jpg")
+                .asin("B001IGFHW6")
+                .goodreadsId("38550")
+                .openlibraryId("OL1394865A")
+                .build());
+
+        AuthorDetails details = service.matchAuthorFromLibrary(7L);
+
+        assertThat(details.getAsin()).isEqualTo("B001IGFHW6");
+        assertThat(details.getGoodreadsId()).isEqualTo("38550");
+        assertThat(details.getOpenlibraryId()).isEqualTo("OL1394865A");
+        assertThat(author.getAsin()).isEqualTo("B001IGFHW6");
+        assertThat(author.getOpenlibraryId()).isEqualTo("OL1394865A");
+        verifyNoInteractions(goodReadsParser);
+        verify(authorRepository, never()).findGoodreadsBookIdsForAuthor(anyLong());
+        verify(fileService).createAuthorThumbnailFromUrl(7L, "https://covers.openlibrary.org/a/id/6155669-L.jpg");
+        verify(auditService).log(eq(AuditAction.AUTHOR_METADATA_UPDATED), eq("Author"), eq(7L), anyString());
+    }
+
+    @Test
+    void matchAuthorFromLibrary_fallsBackToGoodreadsWhenOpenLibraryMisses() {
         AuthorEntity author = new AuthorEntity();
         author.setId(7L);
         author.setName("Brandon Sanderson");
@@ -241,65 +274,60 @@ class AuthorMetadataServiceTest {
         when(authorRepository.findById(7L)).thenReturn(Optional.of(author));
         when(authorRepository.findGoodreadsBookIdsForAuthor(7L)).thenReturn(List.of("68428", "13496"));
         when(authorRepository.save(any(AuthorEntity.class))).thenAnswer(i -> i.getArgument(0));
-
-        AuthorSearchResult result = AuthorSearchResult.builder()
+        when(openLibraryParser.fetchAuthor("Brandon Sanderson")).thenReturn(null);
+        when(goodReadsParser.fetchAuthorFromBookPage("68428", "Brandon Sanderson")).thenReturn(AuthorSearchResult.builder()
                 .source(AuthorMetadataSource.GOODREADS)
                 .name("Brandon Sanderson")
                 .description("Brandon Sanderson is an American author of epic fantasy.")
                 .imageUrl("https://images.gr-assets.com/authors/sanderson.jpg")
                 .goodreadsId("38550")
-                .build();
-        when(goodReadsParser.fetchAuthorFromBookPage("68428", "Brandon Sanderson")).thenReturn(result);
+                .build());
 
         AuthorDetails details = service.matchAuthorFromLibrary(7L);
 
         assertThat(details.getGoodreadsId()).isEqualTo("38550");
-        assertThat(details.getDescription()).isEqualTo("Brandon Sanderson is an American author of epic fantasy.");
-        assertThat(details.getAsin()).isEqualTo("B001IGFHW6");
-        assertThat(author.getGoodreadsId()).isEqualTo("38550");
-        assertThat(author.getAsin()).isEqualTo("B001IGFHW6");
+        assertThat(details.getAsin()).isEqualTo("B001IGFHW6"); // untouched - GoodReads carries no ASIN
         verify(goodReadsParser, never()).fetchAuthorFromBookPage(eq("13496"), anyString());
-        verify(fileService).createAuthorThumbnailFromUrl(7L, "https://images.gr-assets.com/authors/sanderson.jpg");
-        verify(auditService).log(eq(AuditAction.AUTHOR_METADATA_UPDATED), eq("Author"), eq(7L), anyString());
     }
 
     @Test
-    void matchAuthorFromLibrary_throwsWhenNoGoodreadsLinkedBooks() {
+    void matchAuthorFromLibrary_throwsWhenNothingFound() {
         AuthorEntity author = new AuthorEntity();
         author.setId(8L);
         author.setName("Obscure Author");
 
         when(authorRepository.findById(8L)).thenReturn(Optional.of(author));
+        when(openLibraryParser.fetchAuthor("Obscure Author")).thenReturn(null);
         when(authorRepository.findGoodreadsBookIdsForAuthor(8L)).thenReturn(Collections.emptyList());
 
         assertThatThrownBy(() -> service.matchAuthorFromLibrary(8L))
                 .isInstanceOf(APIException.class)
-                .hasMessageContaining("GoodReads ID");
-        verifyNoInteractions(goodReadsParser);
+                .hasMessageContaining("Could not find author details");
     }
 
     @Test
-    void matchAuthorFromLibrary_respectsDescriptionLockAndSkipsNameMismatch() {
+    void matchAuthorFromLibrary_respectsAsinAndDescriptionLocks() {
         AuthorEntity author = new AuthorEntity();
         author.setId(9L);
         author.setName("Jane Doe");
         author.setDescription("hand written bio");
         author.setDescriptionLocked(true);
+        author.setAsin("B0MANUAL123");
+        author.setAsinLocked(true);
 
         when(authorRepository.findById(9L)).thenReturn(Optional.of(author));
-        when(authorRepository.findGoodreadsBookIdsForAuthor(9L)).thenReturn(List.of("111", "222"));
-        when(goodReadsParser.fetchAuthorFromBookPage("111", "Jane Doe"))
-                .thenReturn(AuthorSearchResult.builder().source(AuthorMetadataSource.GOODREADS)
-                        .name("Someone Else").description("wrong bio").goodreadsId("999").build());
-        when(goodReadsParser.fetchAuthorFromBookPage("222", "Jane Doe"))
-                .thenReturn(AuthorSearchResult.builder().source(AuthorMetadataSource.GOODREADS)
-                        .name("Jane Doe").description("fetched bio").goodreadsId("123").build());
         when(authorRepository.save(any(AuthorEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(openLibraryParser.fetchAuthor("Jane Doe")).thenReturn(AuthorSearchResult.builder()
+                .source(AuthorMetadataSource.OPEN_LIBRARY)
+                .name("Jane Doe").description("fetched bio").asin("B0FETCHED99")
+                .goodreadsId("123").openlibraryId("OL9A").build());
 
         AuthorDetails details = service.matchAuthorFromLibrary(9L);
 
         assertThat(details.getDescription()).isEqualTo("hand written bio");
+        assertThat(details.getAsin()).isEqualTo("B0MANUAL123");
         assertThat(details.getGoodreadsId()).isEqualTo("123");
+        assertThat(details.getOpenlibraryId()).isEqualTo("OL9A");
     }
 
     @Test

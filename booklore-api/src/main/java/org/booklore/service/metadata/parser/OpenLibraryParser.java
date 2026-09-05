@@ -1,12 +1,15 @@
 package org.booklore.service.metadata.parser;
 
 import lombok.extern.slf4j.Slf4j;
+import org.booklore.model.dto.AuthorSearchResult;
 import org.booklore.model.dto.Book;
 import org.booklore.model.dto.BookMetadata;
 import org.booklore.model.dto.request.FetchMetadataRequest;
 import org.booklore.model.dto.response.OpenLibraryApiResponse;
 import org.booklore.model.dto.response.OpenLibraryWorkResponse;
+import org.booklore.model.enums.AuthorMetadataSource;
 import org.booklore.model.enums.MetadataProvider;
+import tools.jackson.databind.JsonNode;
 import org.booklore.util.BookUtils;
 import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -174,6 +177,131 @@ public class OpenLibraryParser implements BookParser {
             log.debug("Failed to parse Open Library edition page count: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Looks an author up by name via Open Library's authors API and returns their bio, photo,
+     * and cross-provider ids ({@code remote_ids.amazon} -> ASIN, {@code remote_ids.goodreads}).
+     * Free, no auth, no bot wall - the primary source for author enrichment. Returns null if
+     * no author matches or the API is unreachable.
+     */
+    public AuthorSearchResult fetchAuthor(String authorName) {
+        if (authorName == null || authorName.isBlank()) {
+            return null;
+        }
+        try {
+            String authorKey = searchAuthorKey(authorName);
+            if (authorKey == null) {
+                return null;
+            }
+            return fetchAuthorRecord(authorKey);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            log.warn("Open Library author lookup failed for '{}': {}", authorName, e.getMessage());
+            return null;
+        }
+    }
+
+    private String searchAuthorKey(String name) throws IOException, InterruptedException {
+        URI uri = UriComponentsBuilder.fromUriString(BASE_URL + "/search/authors.json")
+                .queryParam("q", name)
+                .queryParam("limit", 5)
+                .build()
+                .encode()
+                .toUri();
+        HttpResponse<String> response = httpClient.send(
+                HttpRequest.newBuilder().uri(uri).GET().build(), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            return null;
+        }
+        JsonNode docs = objectMapper.readTree(response.body()).path("docs");
+        if (!docs.isArray() || docs.isEmpty()) {
+            return null;
+        }
+        String target = normalizeName(name);
+        String firstKey = null;
+        for (JsonNode doc : docs) {
+            String key = trimToNull(doc.path("key").asString(""));
+            if (key == null) {
+                continue;
+            }
+            if (firstKey == null) {
+                firstKey = key;
+            }
+            if (normalizeName(doc.path("name").asString("")).equals(target)) {
+                return key;
+            }
+        }
+        return firstKey;
+    }
+
+    private AuthorSearchResult fetchAuthorRecord(String authorKey) throws IOException, InterruptedException {
+        URI uri = URI.create(BASE_URL + "/authors/" + authorKey + ".json");
+        HttpResponse<String> response = httpClient.send(
+                HttpRequest.newBuilder().uri(uri).GET().build(), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            return null;
+        }
+        JsonNode node = objectMapper.readTree(response.body());
+        if (node == null) {
+            return null;
+        }
+        JsonNode remoteIds = node.path("remote_ids");
+        return AuthorSearchResult.builder()
+                .source(AuthorMetadataSource.OPEN_LIBRARY)
+                .name(trimToNull(node.path("name").asString("")))
+                .description(extractAuthorBio(node.get("bio")))
+                .imageUrl(extractAuthorPhoto(node.path("photos")))
+                .asin(validAsin(trimToNull(remoteIds.path("amazon").asString(""))))
+                .goodreadsId(trimToNull(remoteIds.path("goodreads").asString("")))
+                .openlibraryId(authorKey)
+                .build();
+    }
+
+    private String extractAuthorBio(JsonNode bio) {
+        if (bio == null || bio.isMissingNode() || bio.isNull()) {
+            return null;
+        }
+        String raw = bio.isObject() ? bio.path("value").asString("") : bio.asString("");
+        if (raw.isBlank()) {
+            return null;
+        }
+        String cleaned = WHITESPACE_PATTERN.matcher(Jsoup.parse(raw).text().trim()).replaceAll(" ");
+        return cleaned.isBlank() ? null : cleaned;
+    }
+
+    private String extractAuthorPhoto(JsonNode photos) {
+        if (photos == null || !photos.isArray()) {
+            return null;
+        }
+        for (JsonNode photo : photos) {
+            long id = photo.isIntegralNumber() ? photo.longValue() : -1L;
+            if (id > 0) {
+                return COVERS_BASE_URL + "/a/id/" + id + "-L.jpg";
+            }
+        }
+        return null;
+    }
+
+    private String validAsin(String value) {
+        return value != null && ASIN_PATTERN.matcher(value).matches() ? value : null;
+    }
+
+    private String normalizeName(String s) {
+        if (s == null) {
+            return "";
+        }
+        return WHITESPACE_PATTERN.matcher(s.toLowerCase().replaceAll("[^\\p{Alnum}]+", " ")).replaceAll(" ").trim();
+    }
+
+    private String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String trimmed = s.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private URI buildSearchUri(Book book, FetchMetadataRequest request) {

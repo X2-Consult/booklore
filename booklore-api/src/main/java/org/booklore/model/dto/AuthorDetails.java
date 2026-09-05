@@ -13,6 +13,7 @@ public class AuthorDetails {
     private String description;
     private String asin;
     private String goodreadsId;
+    private String openlibraryId;
     private boolean nameLocked;
     private boolean descriptionLocked;
     private boolean asinLocked;

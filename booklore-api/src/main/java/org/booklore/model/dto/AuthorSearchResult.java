@@ -10,6 +10,7 @@ public class AuthorSearchResult {
     private AuthorMetadataSource source;
     private String asin;
     private String goodreadsId;
+    private String openlibraryId;
     private String name;
     private String description;
     private String imageUrl;

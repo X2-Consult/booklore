@@ -53,10 +53,10 @@
     "quickMatchSuccessDetail": "Author has been matched successfully.",
     "quickMatchFailedSummary": "Quick Match Failed",
     "quickMatchFailedDetail": "Failed to quick-match the author.",
-    "libraryMatchSuccessSummary": "Details Fetched from GoodReads",
-    "libraryMatchSuccessDetail": "Author details were filled in from a linked GoodReads book.",
-    "libraryMatchFailedSummary": "GoodReads Match Failed",
-    "libraryMatchFailedDetail": "Could not fetch author details from a linked GoodReads book.",
+    "libraryMatchSuccessSummary": "Author Details Fetched",
+    "libraryMatchSuccessDetail": "Bio, photo and identifiers were filled in from the web.",
+    "libraryMatchFailedSummary": "Author Match Failed",
+    "libraryMatchFailedDetail": "Could not find author details from OpenLibrary or GoodReads.",
     "deleteSelectedSuccessSummary": "Authors Deleted",
     "deleteSelectedSuccessDetail": "Selected authors have been deleted successfully."
   },
@@ -97,7 +97,7 @@
   },
   "detail": {
     "quickMatchTooltip": "Quick Match",
-    "libraryMatchTooltip": "Fetch details from a linked GoodReads book",
+    "libraryMatchTooltip": "Fetch author details from the web (OpenLibrary, GoodReads)",
     "loading": "Loading author details...",
     "booksTab": "Author Details",
     "editTab": "Edit Details",
