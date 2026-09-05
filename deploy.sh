@@ -23,6 +23,33 @@ SKIP_PULL=false
 [ "${1:-}" = "--skip-pull" ] && SKIP_PULL=true
 
 log() { echo ">> $*"; }
+warn() { echo ">> WARNING: $*" >&2; }
+
+# Stamp the running version into the systemd EnvironmentFile as APP_VERSION, which
+# application.yaml reads as `app.version` (${APP_VERSION:development}). Native installs
+# have no build-time version injection like the Docker/CI image does, so without this
+# the app reports "development" forever. `git describe` yields the release tag on a
+# tagged master HEAD (e.g. v1.2.3) or "<tag>-<n>-g<sha>" mid-branch.
+stamp_app_version() {
+  local version
+  version="$(git -C "$REPO_DIR" describe --tags --always 2>/dev/null || git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || true)"
+  [ -z "$version" ] && { warn "Could not determine a version to stamp; leaving APP_VERSION as-is."; return; }
+  if [ ! -w "$ENV_FILE" ] && [ ! -w "$(dirname "$ENV_FILE")" ]; then
+    if sudo -n true 2>/dev/null || [ "$(id -u)" = 0 ]; then :; else
+      warn "No write access to $ENV_FILE and no passwordless sudo; version will not be stamped."
+      return
+    fi
+    SUDO="sudo"
+  else
+    SUDO=""
+  fi
+  log "Stamping APP_VERSION=$version into $ENV_FILE"
+  if $SUDO grep -q '^APP_VERSION=' "$ENV_FILE" 2>/dev/null; then
+    $SUDO sed -i "s|^APP_VERSION=.*|APP_VERSION=${version}|" "$ENV_FILE"
+  else
+    printf 'APP_VERSION=%s\n' "$version" | $SUDO tee -a "$ENV_FILE" > /dev/null
+  fi
+}
 
 # pg_stat_statements is the standard tool for finding slow/expensive queries in Postgres,
 # but enabling it needs two steps: adding it to shared_preload_libraries (which only takes
@@ -97,11 +124,17 @@ INSTALL_MODE="$(grep -oP '(?<=^INSTALL_MODE=).*' "$ENV_FILE" 2>/dev/null || true
 INSTALL_MODE="${INSTALL_MODE:-dev}"
 log "Install mode: $INSTALL_MODE"
 
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+if [ "$CURRENT_BRANCH" != "master" ]; then
+  warn "This checkout is on '$CURRENT_BRANCH', not 'master'. Production should track 'master' (see promote.sh)."
+fi
+
 ensure_pg_stat_statements
 
 LOCK_CHANGED=false
 if [ "$SKIP_PULL" = false ]; then
   log "Pulling latest changes..."
+  git fetch --tags --quiet || true
   BEFORE_LOCK="$(git rev-parse HEAD:booklore-ui/package-lock.json 2>/dev/null || true)"
   git pull --ff-only
   AFTER_LOCK="$(git rev-parse HEAD:booklore-ui/package-lock.json 2>/dev/null || true)"
@@ -117,6 +150,8 @@ if [ "$LOCK_CHANGED" = true ]; then
 else
   log "No frontend dependency changes, skipping npm install."
 fi
+
+stamp_app_version
 
 if [ "$INSTALL_MODE" = "production" ]; then
   log "Building Angular app for production..."

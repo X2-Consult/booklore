@@ -1,7 +1,10 @@
 app:
   path-config: '/app/data'
   bookdrop-folder: '/bookdrop'
-  version: 'development'
+  # Release builds (CI) rewrite this literal with the git tag via yq. Native installs
+  # leave the literal in place and pass the real version through APP_VERSION instead.
+  version: ${APP_VERSION:development}
+  repo-dir: ${BOOKLORE_REPO_DIR:/opt/booklore}
 
   cors:
     # Comma-separated list of allowed CORS origins.

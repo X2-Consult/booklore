@@ -13,6 +13,7 @@ public class AppProperties {
     private String pathConfig;
     private String bookdropFolder;
     private String version;
+    private String repoDir;
     private RemoteAuth remoteAuth;
     private Boolean forceDisableOidc = false;
 

@@ -154,12 +154,17 @@ sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'
 # ─── 5. Credentials file (outside the git tree) ────────────────────────────
 log "Writing credentials to $ENV_FILE..."
 sudo mkdir -p "$(dirname "$ENV_FILE")"
+# application.yaml reads app.version from ${APP_VERSION:development}; native installs
+# have no build-time injection, so stamp the git version here (deploy.sh re-stamps it
+# on every update).
+APP_VERSION_VALUE="$(git -C "$REPO_DIR" describe --tags --always 2>/dev/null || git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo development)"
 sudo tee "$ENV_FILE" > /dev/null <<EOF
 DATABASE_URL=jdbc:postgresql://localhost:5432/${DB_NAME}
 DATABASE_USERNAME=${DB_USER}
 DATABASE_PASSWORD=${DB_PASSWORD}
 ALLOWED_ORIGINS=${ALLOWED_ORIGINS_VALUE}
 INSTALL_MODE=${INSTALL_MODE}
+APP_VERSION=${APP_VERSION_VALUE}
 EOF
 sudo chown "$APP_USER" "$ENV_FILE"
 sudo chmod 600 "$ENV_FILE"
