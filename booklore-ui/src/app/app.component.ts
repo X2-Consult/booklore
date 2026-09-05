@@ -20,6 +20,7 @@ import {LibraryLoadingService} from './features/library-creator/library-loading.
 import {scan, withLatestFrom} from 'rxjs/operators';
 import {AuthService} from './shared/service/auth.service';
 import {PwaUpdateService} from './shared/service/pwa-update.service';
+import {SystemUpdateService} from './shared/service/system-update.service';
 
 @Component({
   selector: 'app-root',
@@ -32,6 +33,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   loading = true;
   offline = false;
+  updating = false;
   private subscriptions: Subscription[] = [];
   private subscriptionsInitialized = false;
 
@@ -48,10 +50,12 @@ export class AppComponent implements OnInit, OnDestroy {
   private libraryHealthService = inject(LibraryHealthService);
   private libraryLoadingService = inject(LibraryLoadingService);
   private authService = inject(AuthService);
+  private systemUpdateService = inject(SystemUpdateService);
 
   ngOnInit(): void {
     window.addEventListener('online', this.onOnline);
     window.addEventListener('offline', this.onOffline);
+    this.subscriptions.push(this.systemUpdateService.updating$.subscribe(v => this.updating = v));
 
     this.authInit.initialized$.subscribe(ready => {
       this.loading = !ready;

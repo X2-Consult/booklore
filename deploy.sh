@@ -11,8 +11,9 @@
 # booklore-api / booklore-ui is enough - no separate build step needed.
 #
 # Usage:
-#   ./deploy.sh              # git pull, then restart
-#   ./deploy.sh --skip-pull  # restart only, e.g. to deploy uncommitted edits
+#   ./deploy.sh                 # git pull, then restart
+#   ./deploy.sh --skip-pull     # restart only, e.g. to deploy uncommitted edits
+#   ./deploy.sh --skip-pg-check # skip the pg_stat_statements check (used by the in-app updater)
 #
 
 set -euo pipefail
@@ -20,7 +21,14 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="/etc/booklore/booklore.env"
 SKIP_PULL=false
-[ "${1:-}" = "--skip-pull" ] && SKIP_PULL=true
+SKIP_PG_CHECK=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-pull) SKIP_PULL=true ;;
+    --skip-pg-check) SKIP_PG_CHECK=true ;;  # used by the in-app updater (no postgres sudo)
+    *) echo "Unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
 
 log() { echo ">> $*"; }
 warn() { echo ">> WARNING: $*" >&2; }
@@ -129,7 +137,7 @@ if [ "$CURRENT_BRANCH" != "master" ]; then
   warn "This checkout is on '$CURRENT_BRANCH', not 'master'. Production should track 'master' (see promote.sh)."
 fi
 
-ensure_pg_stat_statements
+[ "$SKIP_PG_CHECK" = true ] || ensure_pg_stat_statements
 
 LOCK_CHANGED=false
 if [ "$SKIP_PULL" = false ]; then

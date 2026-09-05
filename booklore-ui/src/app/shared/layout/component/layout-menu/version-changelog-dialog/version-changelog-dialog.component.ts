@@ -1,12 +1,15 @@
-import { Component, inject, OnInit } from '@angular/core';
-import { ReleaseNote, VersionService } from '../../../../service/version.service';
+import {Component, inject, OnInit} from '@angular/core';
+import {ReleaseNote, VersionService} from '../../../../service/version.service';
 
 import showdown from 'showdown';
 import DOMPurify from 'dompurify';
 import {DatePipe} from '@angular/common';
 import {DynamicDialogRef} from 'primeng/dynamicdialog';
 import {Button} from 'primeng/button';
-import {TranslocoDirective} from '@jsverse/transloco';
+import {TranslocoDirective, TranslocoService} from '@jsverse/transloco';
+import {ConfirmationService, MessageService} from 'primeng/api';
+import {SelfUpdateStatus, SystemUpdateService} from '../../../../service/system-update.service';
+import {UserService} from '../../../../../features/settings/user-management/user.service';
 
 @Component({
   selector: 'app-version-changelog-dialog',
@@ -22,12 +25,20 @@ import {TranslocoDirective} from '@jsverse/transloco';
 export class VersionChangelogDialogComponent implements OnInit {
 
   private versionService = inject(VersionService);
+  private systemUpdateService = inject(SystemUpdateService);
+  private userService = inject(UserService);
+  private confirmationService = inject(ConfirmationService);
+  private messageService = inject(MessageService);
+  private t = inject(TranslocoService);
   dialogRef = inject(DynamicDialogRef);
 
   changelog: ReleaseNote[] = [];
   loading = true;
 
-  private converter = new showdown.Converter({ tables: true, emoji: true });
+  updateStatus: SelfUpdateStatus | null = null;
+  starting = false;
+
+  private converter = new showdown.Converter({tables: true, emoji: true});
 
   ngOnInit(): void {
     this.versionService.getChangelog().subscribe({
@@ -37,6 +48,48 @@ export class VersionChangelogDialogComponent implements OnInit {
       },
       error: () => {
         this.loading = false;
+      }
+    });
+
+    if (this.userService.getCurrentUser()?.permissions?.admin) {
+      this.systemUpdateService.getUpdateStatus().subscribe({
+        next: (status) => this.updateStatus = status,
+        error: () => this.updateStatus = null
+      });
+    }
+  }
+
+  get canUpdate(): boolean {
+    return !!this.updateStatus?.selfUpdateSupported
+      && !!this.updateStatus?.updateAvailable
+      && !this.updateStatus?.inProgress
+      && !this.starting;
+  }
+
+  confirmUpdate(): void {
+    this.confirmationService.confirm({
+      header: this.t.translate('layout.changelog.updateConfirmHeader'),
+      message: this.t.translate('layout.changelog.updateConfirmMessage'),
+      icon: 'pi pi-exclamation-triangle',
+      accept: () => this.startUpdate()
+    });
+  }
+
+  private startUpdate(): void {
+    if (!this.updateStatus) return;
+    this.starting = true;
+    const previousVersion = this.updateStatus.currentVersion;
+    this.systemUpdateService.triggerUpdate(previousVersion).subscribe({
+      next: () => {
+        this.dialogRef.close();
+      },
+      error: (err) => {
+        this.starting = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: this.t.translate('layout.changelog.updateFailedSummary'),
+          detail: err?.error?.message || this.t.translate('layout.changelog.updateFailedDetail')
+        });
       }
     });
   }

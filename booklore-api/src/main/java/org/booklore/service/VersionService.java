@@ -45,6 +45,16 @@ public class VersionService {
         return fetchReleaseNotesSince(appVersion);
     }
 
+    /**
+     * True only when both the running version and the latest GitHub release are clean
+     * semver tags and the release is strictly newer. A "development" / describe-suffixed
+     * running version therefore never reports an update as available.
+     */
+    public boolean isNewerVersionAvailable() {
+        VersionInfo info = getVersionInfo();
+        return isVersionGreater(info.getLatest(), info.getCurrent());
+    }
+
 
     public String fetchLatestGitHubReleaseVersion() {
         try {

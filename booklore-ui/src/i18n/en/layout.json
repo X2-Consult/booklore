@@ -34,7 +34,14 @@
     "title": "What's New",
     "description": "Latest updates and improvements",
     "loading": "Loading changelog...",
-    "empty": "No updates available."
+    "empty": "No updates available.",
+    "updateNow": "Update now",
+    "updateHint": "{{version}} is available.",
+    "updateInProgress": "An update is already running…",
+    "updateConfirmHeader": "Update BookLore?",
+    "updateConfirmMessage": "The server will pull the latest release, rebuild, and restart. BookLore will be briefly unavailable and this page will reload automatically.",
+    "updateFailedSummary": "Update failed to start",
+    "updateFailedDetail": "Could not start the update. Check the server logs."
   },
   "theme": {
     "primary": "Primary",

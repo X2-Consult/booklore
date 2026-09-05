@@ -46,5 +46,22 @@
       </div>
     }
   </div>
+
+  @if (updateStatus?.selfUpdateSupported && updateStatus?.updateAvailable) {
+    <div class="dialog-footer">
+      @if (updateStatus?.inProgress) {
+        <span class="update-hint">{{ t('updateInProgress') }}</span>
+      } @else {
+        <span class="update-hint">{{ t('updateHint', {version: updateStatus?.latestVersion}) }}</span>
+      }
+      <p-button
+        [label]="t('updateNow')"
+        icon="pi pi-download"
+        [loading]="starting"
+        [disabled]="!canUpdate"
+        (click)="confirmUpdate()">
+      </p-button>
+    </div>
+  }
 </div>
 </ng-container>

@@ -279,6 +279,19 @@ EOF
   sudo systemctl enable --now booklore-api booklore-ui
 fi
 
+# ─── 8.5 Passwordless restart for the in-app "Update now" button ───────────
+# Scoped to exactly the two restarts self-update.sh needs - nothing broader.
+SYSTEMCTL_BIN="$(command -v systemctl || echo /usr/bin/systemctl)"
+SUDOERS_FILE="/etc/sudoers.d/booklore"
+SUDOERS_LINE="${APP_USER} ALL=(root) NOPASSWD: ${SYSTEMCTL_BIN} restart booklore-api, ${SYSTEMCTL_BIN} restart booklore-ui"
+log "Installing $SUDOERS_FILE (passwordless service restart for in-app updates)..."
+printf '%s\n' "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
+sudo chmod 0440 "$SUDOERS_FILE"
+if ! sudo visudo -cf "$SUDOERS_FILE"; then
+  warn "sudoers validation failed - removing $SUDOERS_FILE. The in-app update button will be unavailable."
+  sudo rm -f "$SUDOERS_FILE"
+fi
+
 # ─── 9. Reverse proxy + TLS (optional, only if publicly hosted) ────────────
 echo
 FQDN=""
