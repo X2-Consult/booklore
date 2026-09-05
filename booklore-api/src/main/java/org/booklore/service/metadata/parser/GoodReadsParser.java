@@ -194,7 +194,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         return results;
     }
 
-    private BookMetadata parseBookDetails(Document document, String goodreadsId) {
+    BookMetadata parseBookDetails(Document document, String goodreadsId) {
         BookMetadata.BookMetadataBuilder builder = BookMetadata.builder()
                 .goodreadsId(goodreadsId)
                 .provider(MetadataProvider.GoodReads);
@@ -324,7 +324,8 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         TitleInfo titleInfo = parseTitleInfo(bookJson.optString("title"));
         builder.title(titleInfo.title())
                 .subtitle(titleInfo.subtitle())
-                .description(normalizeNull(bookJson.optString("description")))
+                // GoodReads stores this as either "description" or "description({\"stripped\":true})"
+                .description(firstNonBlankJsonField(bookJson, "description"))
                 .thumbnailUrl(normalizeNull(bookJson.optString("imageUrl")))
                 .categories(extractGenres(bookJson));
 
@@ -404,21 +405,47 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         return keySet;
     }
 
+    /**
+     * A book page's apolloState can hold several {@code Book:kca:} nodes (the page's book plus
+     * stubs for "readers also enjoyed", series siblings, etc). The old "first node with a title"
+     * rule sometimes returned a stub, dropping the description, ASIN, ISBN, page count and
+     * publisher. Score the candidates and keep the richest: only the page's own book node has a
+     * {@code details} object, and we prefer the fullest description.
+     */
     private JSONObject getValidBookJson(JSONObject apolloStateJson, LinkedHashSet<String> keySet) {
-        try {
-            for (String key : keySet) {
-                if (key.contains("Book:kca:")) {
-                    JSONObject bookJson = apolloStateJson.getJSONObject(key);
-                    String title = bookJson.optString("title");
-                    if (title != null && !title.isEmpty()) {
-                        return bookJson;
-                    }
-                }
+        JSONObject best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (String key : keySet) {
+            if (!key.contains("Book:kca:")) {
+                continue;
             }
-        } catch (Exception e) {
-            log.error("Error finding valid book JSON: {}", e.getMessage());
+            JSONObject bookJson = apolloStateJson.optJSONObject(key);
+            if (bookJson == null) {
+                continue;
+            }
+            String title = bookJson.optString("title");
+            if (title == null || title.isEmpty()) {
+                continue;
+            }
+
+            int score = 0;
+            if (bookJson.optJSONObject("details") != null) {
+                score += 1000;
+            }
+            String description = firstNonBlankJsonField(bookJson, "description");
+            if (description != null) {
+                score += Math.min(description.length(), 500);
+            }
+            if (bookJson.has("bookGenres")) {
+                score += 10;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = bookJson;
+            }
         }
-        return null;
+        return best;
     }
 
     private String findKeyByPrefix(LinkedHashSet<String> keySet, String prefix) {
