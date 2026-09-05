@@ -39,24 +39,26 @@ warn() { echo ">> WARNING: $*" >&2; }
 # the app reports "development" forever. `git describe` yields the release tag on a
 # tagged master HEAD (e.g. v1.2.3) or "<tag>-<n>-g<sha>" mid-branch.
 stamp_app_version() {
-  local version
+  local version tmp
   version="$(git -C "$REPO_DIR" describe --tags --always 2>/dev/null || git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || true)"
   [ -z "$version" ] && { warn "Could not determine a version to stamp; leaving APP_VERSION as-is."; return; }
-  if [ ! -w "$ENV_FILE" ] && [ ! -w "$(dirname "$ENV_FILE")" ]; then
-    if sudo -n true 2>/dev/null || [ "$(id -u)" = 0 ]; then :; else
-      warn "No write access to $ENV_FILE and no passwordless sudo; version will not be stamped."
-      return
-    fi
-    SUDO="sudo"
-  else
-    SUDO=""
+
+  # Build the new file content in a temp file: every line except APP_VERSION, then APP_VERSION.
+  # (sed -i / tee -a can't touch $ENV_FILE when only the file - not its dir - is writable.)
+  tmp="$(mktemp)"
+  if [ -r "$ENV_FILE" ]; then
+    grep -v '^APP_VERSION=' "$ENV_FILE" > "$tmp" 2>/dev/null || true
   fi
+  printf 'APP_VERSION=%s\n' "$version" >> "$tmp"
+
   log "Stamping APP_VERSION=$version into $ENV_FILE"
-  if $SUDO grep -q '^APP_VERSION=' "$ENV_FILE" 2>/dev/null; then
-    $SUDO sed -i "s|^APP_VERSION=.*|APP_VERSION=${version}|" "$ENV_FILE"
+  if { [ -w "$ENV_FILE" ] && [ -w "$(dirname "$ENV_FILE")" ]; } || [ "$(id -u)" = 0 ]; then
+    cat "$tmp" > "$ENV_FILE" || warn "Could not stamp APP_VERSION into $ENV_FILE."
   else
-    printf 'APP_VERSION=%s\n' "$version" | $SUDO tee -a "$ENV_FILE" > /dev/null
+    # cp into an existing file keeps its owner/mode; deploy.sh is run interactively so sudo may prompt.
+    sudo cp "$tmp" "$ENV_FILE" || warn "Could not stamp APP_VERSION into $ENV_FILE (app.version will fall back to 'development')."
   fi
+  rm -f "$tmp"
 }
 
 # pg_stat_statements is the standard tool for finding slow/expensive queries in Postgres,
