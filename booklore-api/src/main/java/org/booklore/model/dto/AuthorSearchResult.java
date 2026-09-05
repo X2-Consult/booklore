@@ -9,6 +9,7 @@ import org.booklore.model.enums.AuthorMetadataSource;
 public class AuthorSearchResult {
     private AuthorMetadataSource source;
     private String asin;
+    private String goodreadsId;
     private String name;
     private String description;
     private String imageUrl;

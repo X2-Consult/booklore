@@ -20,6 +20,7 @@ import org.booklore.repository.AuthorRepository;
 import org.booklore.service.audit.AuditService;
 import org.booklore.service.metadata.DuckDuckGoCoverService;
 import org.booklore.service.metadata.parser.AuthorParser;
+import org.booklore.service.metadata.parser.GoodReadsParser;
 import org.booklore.util.FileService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -44,12 +45,15 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class AuthorMetadataService {
 
+    private static final int MAX_GOODREADS_BOOK_CANDIDATES = 3;
+
     private final AuthorRepository authorRepository;
     private final Map<AuthorMetadataSource, AuthorParser> authorParserMap;
     private final AuditService auditService;
     private final FileService fileService;
     private final DuckDuckGoCoverService duckDuckGoCoverService;
     private final AuthenticationService authenticationService;
+    private final GoodReadsParser goodReadsParser;
 
     public List<AuthorSummary> getAllAuthors() {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
@@ -144,6 +148,50 @@ public class AuthorMetadataService {
         throw ApiError.GENERIC_BAD_REQUEST.createException("No metadata found for author: " + author.getName());
     }
 
+    /**
+     * Populates an author's bio, photo and GoodReads id from one of their catalogue books that
+     * already has a GoodReads ID (set during a prior book metadata sync). More reliable than the
+     * free-text author search because the book -> author link on GoodReads is exact.
+     */
+    public AuthorDetails matchAuthorFromLibrary(Long authorId) {
+        AuthorEntity author = authorRepository.findById(authorId)
+                .orElseThrow(() -> ApiError.AUTHOR_NOT_FOUND.createException(authorId));
+        verifyAuthorAccess(authorId);
+
+        List<String> goodreadsBookIds = authorRepository.findGoodreadsBookIdsForAuthor(authorId).stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .limit(MAX_GOODREADS_BOOK_CANDIDATES)
+                .toList();
+
+        if (goodreadsBookIds.isEmpty()) {
+            throw ApiError.GENERIC_BAD_REQUEST.createException(
+                    "None of this author's books have a GoodReads ID yet - run a GoodReads metadata refresh on a book first.");
+        }
+
+        for (String goodreadsBookId : goodreadsBookIds) {
+            AuthorSearchResult result = goodReadsParser.fetchAuthorFromBookPage(goodreadsBookId, author.getName());
+            if (result == null || !namesRoughlyMatch(result.getName(), author.getName())) {
+                continue;
+            }
+
+            applyGoodreadsResult(author, result);
+            authorRepository.save(author);
+
+            if (!author.isPhotoLocked() && result.getImageUrl() != null && !result.getImageUrl().isBlank()) {
+                fileService.createAuthorThumbnailFromUrl(author.getId(), result.getImageUrl());
+            }
+
+            auditService.log(AuditAction.AUTHOR_METADATA_UPDATED, "Author", authorId,
+                    "Matched author '" + author.getName() + "' via GoodReads (book " + goodreadsBookId + ")");
+
+            return toAuthorDetails(author);
+        }
+
+        throw ApiError.GENERIC_BAD_REQUEST.createException(
+                "Could not read author details from GoodReads for: " + author.getName());
+    }
+
     public Flux<AuthorSummary> autoMatchAuthors(List<Long> authorIds) {
         return Flux.fromIterable(authorIds)
                 .concatMap(authorId ->
@@ -176,6 +224,7 @@ public class AuthorMetadataService {
 
             author.setDescription(null);
             author.setAsin(null);
+            author.setGoodreadsId(null);
             authorRepository.save(author);
             fileService.deleteAuthorImages(authorId);
 
@@ -335,12 +384,32 @@ public class AuthorMetadataService {
         }
     }
 
+    private void applyGoodreadsResult(AuthorEntity author, AuthorSearchResult result) {
+        if (!author.isDescriptionLocked() && result.getDescription() != null && !result.getDescription().isBlank()) {
+            author.setDescription(result.getDescription());
+        }
+        if (result.getGoodreadsId() != null && !result.getGoodreadsId().isBlank()) {
+            author.setGoodreadsId(result.getGoodreadsId());
+        }
+        // Deliberately does not touch asin - a GoodReads result never carries one.
+    }
+
+    private boolean namesRoughlyMatch(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        String na = a.toLowerCase().replaceAll("[^\\p{Alnum}]+", " ").trim().replaceAll("\\s+", " ");
+        String nb = b.toLowerCase().replaceAll("[^\\p{Alnum}]+", " ").trim().replaceAll("\\s+", " ");
+        return !na.isEmpty() && !nb.isEmpty() && (na.equals(nb) || na.contains(nb) || nb.contains(na));
+    }
+
     private AuthorDetails toAuthorDetails(AuthorEntity author) {
         return AuthorDetails.builder()
                 .id(author.getId())
                 .name(author.getName())
                 .description(author.getDescription())
                 .asin(author.getAsin())
+                .goodreadsId(author.getGoodreadsId())
                 .nameLocked(author.isNameLocked())
                 .descriptionLocked(author.isDescriptionLocked())
                 .asinLocked(author.isAsinLocked())

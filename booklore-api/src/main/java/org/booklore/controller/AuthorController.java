@@ -124,6 +124,15 @@ public class AuthorController {
         return ResponseEntity.ok(authorMetadataService.quickMatchAuthor(authorId, region));
     }
 
+    @Operation(summary = "Match author from library", description = "Populate an author's details from one of their catalogue books that has a GoodReads ID.")
+    @ApiResponse(responseCode = "200", description = "Author matched successfully")
+    @PreAuthorize("@securityUtil.canEditMetadata() or @securityUtil.isAdmin()")
+    @PostMapping("/{authorId}/match-from-library")
+    public ResponseEntity<AuthorDetails> matchAuthorFromLibrary(
+            @Parameter(description = "ID of the author") @PathVariable long authorId) {
+        return ResponseEntity.ok(authorMetadataService.matchAuthorFromLibrary(authorId));
+    }
+
     @Operation(summary = "Auto-match authors", description = "Automatically match multiple authors, streaming results as each is matched.")
     @ApiResponse(responseCode = "200", description = "Authors auto-matched successfully")
     @PreAuthorize("@securityUtil.canEditMetadata() or @securityUtil.isAdmin()")

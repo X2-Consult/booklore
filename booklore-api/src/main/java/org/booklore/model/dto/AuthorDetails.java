@@ -12,6 +12,7 @@ public class AuthorDetails {
     private String name;
     private String description;
     private String asin;
+    private String goodreadsId;
     private boolean nameLocked;
     private boolean descriptionLocked;
     private boolean asinLocked;

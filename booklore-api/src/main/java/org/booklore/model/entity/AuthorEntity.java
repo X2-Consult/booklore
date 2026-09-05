@@ -28,6 +28,9 @@ public class AuthorEntity {
     @Column(name = "asin", length = 20)
     private String asin;
 
+    @Column(name = "goodreads_id", length = 20)
+    private String goodreadsId;
+
     @Column(name = "name_locked", nullable = false)
     private boolean nameLocked;
 

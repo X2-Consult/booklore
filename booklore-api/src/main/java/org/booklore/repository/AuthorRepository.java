@@ -22,6 +22,11 @@ public interface AuthorRepository extends JpaRepository<AuthorEntity, Long> {
 
     Optional<AuthorEntity> findByAsin(String asin);
 
+    @Query("SELECT bm.goodreadsId FROM AuthorEntity a JOIN a.bookMetadataEntityList bm " +
+           "WHERE a.id = :authorId AND bm.goodreadsId IS NOT NULL AND bm.goodreadsId <> '' " +
+           "ORDER BY bm.bookId DESC")
+    List<String> findGoodreadsBookIdsForAuthor(@Param("authorId") Long authorId);
+
     @Query("SELECT a, COUNT(bm) FROM AuthorEntity a LEFT JOIN a.bookMetadataEntityList bm GROUP BY a ORDER BY a.name")
     List<Object[]> findAllWithBookCount();
 

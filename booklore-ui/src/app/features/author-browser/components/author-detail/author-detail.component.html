@@ -59,6 +59,14 @@
                       <p-tag value="Audible" severity="warn"></p-tag>
                     </a>
                   }
+                  @if (author.goodreadsId) {
+                    <a [href]="'https://www.goodreads.com/author/show/' + author.goodreadsId"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="asin-link">
+                      <p-tag value="GoodReads" severity="success"></p-tag>
+                    </a>
+                  }
                   @if (canEditMetadata) {
                     <p-button
                       [icon]="quickMatching ? 'pi pi-spin pi-spinner' : 'pi pi-bolt'"
@@ -68,6 +76,16 @@
                       [disabled]="quickMatching"
                       (onClick)="quickMatch()"
                       [pTooltip]="t('quickMatchTooltip')"
+                      tooltipPosition="top">
+                    </p-button>
+                    <p-button
+                      [icon]="libraryMatching ? 'pi pi-spin pi-spinner' : 'pi pi-book'"
+                      [outlined]="true"
+                      severity="success"
+                      size="small"
+                      [disabled]="libraryMatching"
+                      (onClick)="matchFromLibrary()"
+                      [pTooltip]="t('libraryMatchTooltip')"
                       tooltipPosition="top">
                     </p-button>
                   }

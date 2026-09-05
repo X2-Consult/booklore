@@ -42,6 +42,7 @@ export interface AuthorDetails {
   name: string;
   description?: string;
   asin?: string;
+  goodreadsId?: string;
   nameLocked: boolean;
   descriptionLocked: boolean;
   asinLocked: boolean;

@@ -55,6 +55,10 @@ export class AuthorService {
     });
   }
 
+  matchAuthorFromLibrary(authorId: number): Observable<AuthorDetails> {
+    return this.http.post<AuthorDetails>(`${this.baseUrl}/${authorId}/match-from-library`, null);
+  }
+
   autoMatchAuthors(authorIds: number[]): Observable<AuthorSummary> {
     const token = this.authService.getInternalAccessToken();
     const headers = new HttpHeaders()

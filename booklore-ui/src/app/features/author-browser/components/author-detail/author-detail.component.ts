@@ -71,6 +71,7 @@ export class AuthorDetailComponent implements OnInit, AfterViewChecked {
   hasPhoto = true;
   photoTimestamp = Date.now();
   quickMatching = false;
+  libraryMatching = false;
 
   authorBooks$!: Observable<Book[]>;
 
@@ -153,6 +154,30 @@ export class AuthorDetailComponent implements OnInit, AfterViewChecked {
           severity: 'error',
           summary: this.t.translate('authorBrowser.toast.quickMatchFailedSummary'),
           detail: this.t.translate('authorBrowser.toast.quickMatchFailedDetail')
+        });
+      }
+    });
+  }
+
+  matchFromLibrary(): void {
+    if (!this.author || this.libraryMatching) return;
+    this.libraryMatching = true;
+    this.authorService.matchAuthorFromLibrary(this.author.id).subscribe({
+      next: (matched) => {
+        this.onAuthorUpdated(matched);
+        this.libraryMatching = false;
+        this.messageService.add({
+          severity: 'success',
+          summary: this.t.translate('authorBrowser.toast.libraryMatchSuccessSummary'),
+          detail: this.t.translate('authorBrowser.toast.libraryMatchSuccessDetail')
+        });
+      },
+      error: (err) => {
+        this.libraryMatching = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: this.t.translate('authorBrowser.toast.libraryMatchFailedSummary'),
+          detail: err?.error?.message || this.t.translate('authorBrowser.toast.libraryMatchFailedDetail')
         });
       }
     });

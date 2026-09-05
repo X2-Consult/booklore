@@ -1,9 +1,11 @@
 package org.booklore.service.metadata.parser;
 
+import org.booklore.model.dto.AuthorSearchResult;
 import org.booklore.model.dto.Book;
 import org.booklore.model.dto.BookMetadata;
 import org.booklore.model.dto.BookReview;
 import org.booklore.model.dto.request.FetchMetadataRequest;
+import org.booklore.model.enums.AuthorMetadataSource;
 import org.booklore.model.enums.MetadataProvider;
 import org.booklore.service.appsettings.AppSettingService;
 import org.booklore.util.BookUtils;
@@ -48,6 +50,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
     private static final Pattern SERIES_SUFFIX_PATTERN = Pattern.compile("\\s*\\([^,(]+,\\s*#[\\d.]+\\)\\s*$");
     private static final Pattern SERIES_FROM_TITLE_PATTERN = Pattern.compile("\\(([^,(]+),\\s*#([\\d.]+)\\)\\s*$");
     private static final Pattern COVER_SIZE_TOKEN_PATTERN = Pattern.compile("\\._S[XY]\\d+_\\.");
+    private static final Pattern GOODREADS_AUTHOR_ID_PATTERN = Pattern.compile("/author/show/(\\d+)");
 
     private final AppSettingService appSettingService;
 
@@ -806,7 +809,207 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         }
     }
 
+    /**
+     * Best-effort extraction of an author's details (bio, photo, GoodReads profile id) from a
+     * GoodReads book page's apolloState {@code Contributor} node. Used to enrich the author
+     * catalogue from a book that already has a GoodReads ID, sidestepping the unreliable
+     * free-text author search. Returns {@code null} if the page is WAF-gated, has no
+     * {@code __NEXT_DATA__}, or has no usable contributor.
+     *
+     * @param goodreadsBookId the numeric GoodReads book id (e.g. "13496")
+     * @param authorNameHint  the catalogue author's name, used to pick the right contributor
+     *                        on multi-author books; may be null
+     */
+    public AuthorSearchResult fetchAuthorFromBookPage(String goodreadsBookId, String authorNameHint) {
+        if (goodreadsBookId == null || goodreadsBookId.isBlank()) {
+            return null;
+        }
+        try {
+            Document document = fetchDoc(BASE_BOOK_URL + goodreadsBookId);
+            return extractAuthorFromBookDocument(document, authorNameHint);
+        } catch (WafChallengeException e) {
+            log.warn("GoodReads: WAF challenge extracting author from book {}", goodreadsBookId);
+            return null;
+        } catch (Exception e) {
+            log.error("GoodReads: failed to extract author from book {}", goodreadsBookId, e);
+            return null;
+        }
+    }
+
+    AuthorSearchResult extractAuthorFromBookDocument(Document document, String authorNameHint) {
+        JSONObject apolloStateJson = getApolloState(document);
+        if (apolloStateJson == null) {
+            return null;
+        }
+        LinkedHashSet<String> keySet = getJsonKeys(apolloStateJson);
+
+        JSONObject contributor = selectContributor(apolloStateJson, keySet, authorNameHint);
+        if (contributor == null) {
+            return null;
+        }
+
+        String name = blankToNull(contributor.optString("name"));
+        String bio = stripHtml(firstNonBlankJsonField(contributor, "description"));
+        String imageUrl = firstNonBlankJsonField(contributor, "profileImageUrl", "imageUrl", "image");
+        String webUrl = blankToNull(contributor.optString("webUrl"));
+        String goodreadsAuthorId = extractGoodreadsAuthorId(webUrl);
+
+        if (isBlank(bio) && webUrl != null) {
+            bio = fetchAuthorPageBio(webUrl);
+        }
+
+        if (isBlank(name) && isBlank(bio) && isBlank(imageUrl) && goodreadsAuthorId == null) {
+            return null;
+        }
+
+        return AuthorSearchResult.builder()
+                .source(AuthorMetadataSource.GOODREADS)
+                .name(name)
+                .description(isBlank(bio) ? null : bio)
+                .imageUrl(imageUrl)
+                .goodreadsId(goodreadsAuthorId)
+                .build();
+    }
+
+    private JSONObject getApolloState(Document document) {
+        JSONObject nextData = getJson(document);
+        if (nextData == null) {
+            return null;
+        }
+        try {
+            return nextData.getJSONObject("props").getJSONObject("pageProps").getJSONObject("apolloState");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private JSONObject selectContributor(JSONObject apolloStateJson, LinkedHashSet<String> keySet, String nameHint) {
+        List<String> keys = findKeysByPrefixAll(keySet, "Contributor:kca");
+        if (keys.isEmpty()) {
+            String single = findKeyByPrefix(keySet, "Contributor:kca");
+            if (single != null) {
+                keys = List.of(single);
+            }
+        }
+        JSONObject firstContributor = null;
+        for (String key : keys) {
+            JSONObject node = apolloStateJson.optJSONObject(key);
+            if (node == null) {
+                continue;
+            }
+            if (firstContributor == null) {
+                firstContributor = node;
+            }
+            if (nameHint != null && namesMatch(node.optString("name"), nameHint)) {
+                return node;
+            }
+        }
+        return firstContributor;
+    }
+
+    private boolean namesMatch(String a, String b) {
+        String na = normalizeName(a);
+        String nb = normalizeName(b);
+        if (na.isEmpty() || nb.isEmpty()) {
+            return false;
+        }
+        return na.equals(nb) || na.contains(nb) || nb.contains(na);
+    }
+
+    private String normalizeName(String s) {
+        if (s == null) {
+            return "";
+        }
+        // Lowercase, treat any non-alphanumeric (punctuation, initials' dots) as a separator,
+        // then collapse whitespace so "James S.A. Corey" == "James S. A. Corey".
+        String cleaned = s.toLowerCase(Locale.ROOT).replaceAll("[^\\p{Alnum}]+", " ");
+        return WHITESPACE_PATTERN.matcher(cleaned).replaceAll(" ").trim();
+    }
+
+    private String firstNonBlankJsonField(JSONObject node, String... fieldNames) {
+        Iterator<String> it = node.keys();
+        while (it.hasNext()) {
+            String key = it.next();
+            for (String field : fieldNames) {
+                // GoodReads sometimes stores fields with GraphQL args, e.g. description({"stripped":true})
+                if (key.equals(field) || key.startsWith(field + "(")) {
+                    String value = blankToNull(node.optString(key));
+                    if (value != null) {
+                        return value;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private String stripHtml(String html) {
+        if (html == null) {
+            return null;
+        }
+        String text = WHITESPACE_PATTERN.matcher(Jsoup.parse(html).text().trim()).replaceAll(" ");
+        return text.isBlank() ? null : text;
+    }
+
+    private String extractGoodreadsAuthorId(String webUrl) {
+        if (webUrl == null) {
+            return null;
+        }
+        Matcher matcher = GOODREADS_AUTHOR_ID_PATTERN.matcher(webUrl);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private String fetchAuthorPageBio(String authorUrl) {
+        try {
+            Document doc = fetchDoc(authorUrl);
+            Element about = doc.selectFirst(".aboutAuthorInfo span[id^=freeText], .aboutAuthorInfo span");
+            if (about != null && !about.text().isBlank()) {
+                return stripHtml(about.html());
+            }
+            JSONObject apolloStateJson = getApolloState(doc);
+            if (apolloStateJson != null) {
+                LinkedHashSet<String> keys = getJsonKeys(apolloStateJson);
+                JSONObject contributor = selectContributor(apolloStateJson, keys, null);
+                if (contributor != null) {
+                    return stripHtml(firstNonBlankJsonField(contributor, "description"));
+                }
+            }
+        } catch (Exception e) {
+            log.debug("GoodReads: author-page bio fallback failed for {}: {}", authorUrl, e.getMessage());
+        }
+        return null;
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() || "null".equals(value) ? null : value;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    // A single WAF challenge is often transient (rate/behavior based, not a hard IP ban) --
+    // retry a couple of times with a short backoff before giving up and letting the caller
+    // fall back to the shallower autocomplete preview (which is missing fields like asin).
+    private static final int MAX_FETCH_ATTEMPTS = 3;
+
     private Document fetchDoc(String url) {
+        WafChallengeException lastWafException = null;
+        for (int attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
+            try {
+                return fetchDocOnce(url);
+            } catch (WafChallengeException e) {
+                lastWafException = e;
+                if (attempt < MAX_FETCH_ATTEMPTS) {
+                    log.warn("GoodReads: WAF challenge fetching {} (attempt {}/{}), retrying...", url, attempt, MAX_FETCH_ATTEMPTS);
+                    sleepBeforeRetry();
+                }
+            }
+        }
+        throw lastWafException;
+    }
+
+    private Document fetchDocOnce(String url) {
         try {
             Connection.Response response = Jsoup.connect(url)
                     .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
@@ -831,6 +1034,15 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         } catch (IOException e) {
             log.error("Error fetching url: {}", url, e);
             throw new RuntimeException(e);
+        }
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(ThreadLocalRandom.current().nextLong(1000, 2500));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(ie);
         }
     }
 
