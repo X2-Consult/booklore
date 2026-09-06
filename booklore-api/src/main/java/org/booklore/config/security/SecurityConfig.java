@@ -168,6 +168,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> headers
                         .cacheControl(HeadersConfigurer.CacheControlConfig::disable)
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                 )
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll()
@@ -184,6 +186,12 @@ public class SecurityConfig {
         http
                 .securityMatcher("/api/v1/custom-fonts/*/file")
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .headers(headers -> headers
+                        // These URLs carry the access token as a query parameter so the browser
+                        // can load them directly. Without this, a book's own content (an EPUB
+                        // referencing an external image) would leak the token via the Referer.
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -199,6 +207,12 @@ public class SecurityConfig {
         http
                 .securityMatcher("/api/v1/epub/*/file/**")
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .headers(headers -> headers
+                        // These URLs carry the access token as a query parameter so the browser
+                        // can load them directly. Without this, a book's own content (an EPUB
+                        // referencing an external image) would leak the token via the Referer.
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -214,6 +228,12 @@ public class SecurityConfig {
         http
                 .securityMatcher("/api/v1/audiobooks/*/stream/**", "/api/v1/audiobooks/*/track/*/stream/**", "/api/v1/audiobooks/*/cover")
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .headers(headers -> headers
+                        // These URLs carry the access token as a query parameter so the browser
+                        // can load them directly. Without this, a book's own content (an EPUB
+                        // referencing an external image) would leak the token via the Referer.
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -279,10 +299,12 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         
         String allowedOriginsStr = env.getProperty("app.cors.allowed-origins", "*").trim();
-        if ("*".equals(allowedOriginsStr) || allowedOriginsStr.isEmpty()) {
+        boolean wildcardOrigins = "*".equals(allowedOriginsStr) || allowedOriginsStr.isEmpty();
+        if (wildcardOrigins) {
             log.warn(
                 "CORS is configured to allow all origins (*) because 'app.cors.allowed-origins' is '{}'. " +
-                "This maintains backward compatibility, but it's recommended to set it to an explicit origin list.",
+                "Credentialed cross-origin requests are disabled in this mode - set an explicit " +
+                "origin list via ALLOWED_ORIGINS to allow them.",
                 allowedOriginsStr.isEmpty() ? "empty" : "*"
             );
             configuration.setAllowedOriginPatterns(List.of("*"));
@@ -297,7 +319,9 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "Range", "If-None-Match"));
         configuration.setExposedHeaders(List.of("Content-Disposition", "Accept-Ranges", "Content-Range", "Content-Length", "ETag", "Date"));
-        configuration.setAllowCredentials(true);
+        // Never combine a wildcard origin with credentials - that would hand any site on the
+        // internet a credentialed cross-origin channel to this server.
+        configuration.setAllowCredentials(!wildcardOrigins);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

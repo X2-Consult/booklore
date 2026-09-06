@@ -8,14 +8,30 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
+import java.util.Set;
 
 @Slf4j
 @Component
 @Profile({"dev"})
 public class LoggingFilter extends OncePerRequestFilter {
+
+    /**
+     * Headers whose values are credentials. These are never written to the log - a dev-profile
+     * instance still handles real user tokens, and anyone who can read the journal could replay
+     * them. Compared lower-case.
+     */
+    private static final Set<String> REDACTED_HEADERS = Set.of(
+            "authorization",
+            "cookie",
+            "set-cookie",
+            "proxy-authorization",
+            "x-auth-key",
+            "x-auth-user",
+            "x-api-key",
+            "x-catalog-api-key"
+    );
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -33,17 +49,13 @@ public class LoggingFilter extends OncePerRequestFilter {
                 request.getRequestURI(),
                 request.getRemoteAddr());
 
-        ServletUriComponentsBuilder servletUriComponentsBuilder = ServletUriComponentsBuilder
-                .fromCurrentContextPath();
-
-        log.info("servletUriComponentsBuilder.toUriString(): {}", servletUriComponentsBuilder.toUriString());
-
-        var headerNames = request.getHeaderNames();
-        if (headerNames != null) {
-            while (headerNames.hasMoreElements()) {
-                String headerName = headerNames.nextElement();
-                String headerValue = request.getHeader(headerName);
-                log.info("Header: {}={}", headerName, headerValue);
+        if (log.isDebugEnabled()) {
+            var headerNames = request.getHeaderNames();
+            if (headerNames != null) {
+                while (headerNames.hasMoreElements()) {
+                    String headerName = headerNames.nextElement();
+                    log.debug("Header: {}={}", headerName, headerValue(headerName, request));
+                }
             }
         }
 
@@ -55,5 +67,11 @@ public class LoggingFilter extends OncePerRequestFilter {
                 request.getRequestURI(),
                 response.getStatus(),
                 duration);
+    }
+
+    private String headerValue(String headerName, HttpServletRequest request) {
+        return REDACTED_HEADERS.contains(headerName.toLowerCase())
+                ? "<redacted>"
+                : request.getHeader(headerName);
     }
 }

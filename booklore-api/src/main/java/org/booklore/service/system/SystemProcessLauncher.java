@@ -17,7 +17,9 @@ class SystemProcessLauncher implements ProcessLauncher {
     public void launchDetached(List<String> command, File output) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
-        pb.redirectOutput(ProcessBuilder.Redirect.appendTo(output));
+        // Truncate rather than append: the log only ever needs to hold the most recent run, and
+        // appending forever would grow unbounded with nothing to rotate it.
+        pb.redirectOutput(ProcessBuilder.Redirect.to(output));
         pb.redirectInput(ProcessBuilder.Redirect.from(new File("/dev/null")));
         // No waitFor(): the command is prefixed with `setsid`, so it runs in its own session
         // and outlives this JVM when self-update.sh restarts the service.

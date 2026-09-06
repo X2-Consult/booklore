@@ -11,7 +11,9 @@ import org.booklore.model.dto.settings.AppSettings;
 import org.booklore.model.dto.settings.OidcProviderDetails;
 import org.booklore.model.dto.settings.SettingRequest;
 import org.booklore.model.enums.AuditAction;
+import org.booklore.config.security.SecurityUtil;
 import org.booklore.service.appsettings.AppSettingService;
+import org.booklore.service.appsettings.AppSettingsRedactor;
 import org.booklore.service.audit.AuditService;
 import org.booklore.service.oidc.OidcDiagnosticService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,12 +31,15 @@ public class AppSettingController {
     private final AppSettingService appSettingService;
     private final OidcDiagnosticService oidcDiagnosticService;
     private final AuditService auditService;
+    private final SecurityUtil securityUtil;
 
-    @Operation(summary = "Get application settings", description = "Retrieve all application settings.")
+    @Operation(summary = "Get application settings",
+            description = "Retrieve all application settings. Provider credentials (Amazon cookie, API keys, OIDC client secret) are only included for admins.")
     @ApiResponse(responseCode = "200", description = "Application settings returned successfully")
     @GetMapping
     public AppSettings getAppSettings() {
-        return appSettingService.getAppSettings();
+        AppSettings settings = appSettingService.getAppSettings();
+        return securityUtil.isAdmin() ? settings : AppSettingsRedactor.redactSecrets(settings);
     }
 
     @Operation(summary = "Update application settings", description = "Update one or more application settings.")

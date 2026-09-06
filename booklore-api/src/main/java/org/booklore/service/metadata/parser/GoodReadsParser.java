@@ -42,6 +42,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
     private static final String BASE_SEARCH_URL = "https://www.goodreads.com/search?q=";
     private static final String BASE_AUTOCOMPLETE_URL = "https://www.goodreads.com/book/auto_complete?format=json&q=";
     private static final String BASE_BOOK_URL = "https://www.goodreads.com/book/show/";
+    private static final String BASE_AUTHOR_URL_PREFIX = "https://www.goodreads.com/author/";
     private static final String BASE_ISBN_URL = "https://www.goodreads.com/book/isbn/";
     private static final int COUNT_DETAILED_METADATA_TO_GET = 3;
     private static final int COUNT_DETAILED_METADATA_TO_GET_RETRY = 2;
@@ -987,6 +988,11 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
     }
 
     private String fetchAuthorPageBio(String authorUrl) {
+        // authorUrl comes out of the page payload, so treat it as untrusted: only ever follow it
+        // back to GoodReads itself, never to an arbitrary (possibly internal) host.
+        if (authorUrl == null || !authorUrl.startsWith(BASE_AUTHOR_URL_PREFIX)) {
+            return null;
+        }
         try {
             Document doc = fetchDoc(authorUrl);
             Element about = doc.selectFirst(".aboutAuthorInfo span[id^=freeText], .aboutAuthorInfo span");
