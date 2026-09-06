@@ -9,6 +9,7 @@ import org.booklore.repository.*;
 import org.booklore.service.file.FileFingerprint;
 import org.booklore.util.FileUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -112,7 +113,15 @@ public class BookCreatorService {
                 .build();
         bookEntity.setMetadata(metadata);
 
-        return bookRepository.saveAndFlush(bookEntity);
+        try {
+            return bookRepository.saveAndFlush(bookEntity);
+        } catch (DataIntegrityViolationException e) {
+            // The book_file identity unique index rejected this insert - another scan/watcher
+            // pass created the book for this exact file first. Roll back this file group; the
+            // winning row stands and the next scan skips the path.
+            log.warn("Book for '{}' was created concurrently; skipping duplicate insert", libraryFile.getFileName());
+            throw e;
+        }
     }
 
     private long calculateFileSize(LibraryFile libraryFile) {

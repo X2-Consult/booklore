@@ -21,6 +21,7 @@ public class AppMigrationStartup {
     private final MoveIconsToDataFolderMigration moveIconsToDataFolderMigration;
     private final GenerateCoverHashMigration generateCoverHashMigration;
     private final MigrateProgressToFileProgressMigration migrateProgressToFileProgressMigration;
+    private final CollapseExactFileDuplicatesMigration collapseExactFileDuplicatesMigration;
 
     @EventListener(ApplicationReadyEvent.class)
     public void runMigrationsOnce() {
@@ -34,5 +35,6 @@ public class AppMigrationStartup {
         appMigrationService.executeMigration(moveIconsToDataFolderMigration);
         appMigrationService.executeMigration(generateCoverHashMigration);
         appMigrationService.executeMigration(migrateProgressToFileProgressMigration);
+        appMigrationService.executeMigration(collapseExactFileDuplicatesMigration);
     }
 }

@@ -11,8 +11,10 @@ import org.booklore.model.entity.BookFileEntity;
 import org.booklore.model.entity.LibraryPathEntity;
 import org.booklore.model.entity.UserBookFileProgressEntity;
 import org.booklore.model.entity.UserBookProgressEntity;
+import org.booklore.model.enums.AuditAction;
 import org.booklore.repository.BookRepository;
 import org.booklore.repository.UserBookProgressRepository;
+import org.booklore.service.audit.AuditService;
 import org.booklore.service.file.FileMoveHelper;
 import org.booklore.service.monitoring.MonitoringRegistrationService;
 import org.booklore.service.progress.ReadingProgressService;
@@ -43,6 +45,8 @@ public class BookFileAttachmentService {
     private final FileMoveHelper fileMoveHelper;
     private final BookMapper bookMapper;
     private final BookService bookService;
+    private final BookMergeService bookMergeService;
+    private final AuditService auditService;
     private final EntityManager entityManager;
 
     @Transactional
@@ -94,11 +98,21 @@ public class BookFileAttachmentService {
             }
         }
 
+        // Move reading progress, shelves, bookmarks, notes and annotations onto the target
+        // before the source books (and their cascade-linked rows) are deleted below.
+        bookMergeService.transferUserData(targetBookId, uniqueSourceBookIds);
+
         List<Long> deletedSourceBookIds;
         if (moveFiles) {
             deletedSourceBookIds = attachWithFileMove(targetBook, sourceBooks, targetPrimaryFile);
         } else {
             deletedSourceBookIds = attachWithoutFileMove(targetBook, sourceBooks);
+        }
+
+        if (!deletedSourceBookIds.isEmpty()) {
+            auditService.log(AuditAction.DUPLICATE_BOOKS_MERGED, "Book", targetBookId,
+                    "Merged " + deletedSourceBookIds.size() + " book(s) into book " + targetBookId
+                    + " (sources: " + deletedSourceBookIds + ")");
         }
 
         return new AttachBookFileResponse(getUpdatedBook(targetBookId), deletedSourceBookIds);
@@ -120,8 +134,9 @@ public class BookFileAttachmentService {
                             .map(BookFileEntity::getId)
                             .toList();
                     entityManager.createQuery(
-                            "UPDATE BookFileEntity bf SET bf.book.id = :targetId WHERE bf.id IN :fileIds")
+                            "UPDATE BookFileEntity bf SET bf.book.id = :targetId, bf.libraryPathId = :targetLibraryPathId WHERE bf.id IN :fileIds")
                             .setParameter("targetId", targetBook.getId())
+                            .setParameter("targetLibraryPathId", targetBook.getLibraryPath().getId())
                             .setParameter("fileIds", bookFileIds)
                             .executeUpdate();
                 } else {
@@ -132,8 +147,9 @@ public class BookFileAttachmentService {
                                 ? ""
                                 : targetLibraryRoot.relativize(fileDir).toString();
                         entityManager.createQuery(
-                                "UPDATE BookFileEntity bf SET bf.book.id = :targetId, bf.fileSubPath = :subPath WHERE bf.id = :fileId")
+                                "UPDATE BookFileEntity bf SET bf.book.id = :targetId, bf.libraryPathId = :targetLibraryPathId, bf.fileSubPath = :subPath WHERE bf.id = :fileId")
                                 .setParameter("targetId", targetBook.getId())
+                                .setParameter("targetLibraryPathId", targetBook.getLibraryPath().getId())
                                 .setParameter("subPath", newSubPath)
                                 .setParameter("fileId", file.getId())
                                 .executeUpdate();

@@ -12,6 +12,7 @@ import org.booklore.repository.BookRepository;
 import org.booklore.repository.LibraryRepository;
 import org.booklore.service.file.FileFingerprint;
 import org.booklore.service.library.LibraryProcessingService;
+import org.booklore.service.library.LibraryService;
 import org.booklore.util.FileUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -40,6 +41,12 @@ public class LibraryFileEventProcessor {
     private static final int MIN_AUDIO_FILES_FOR_FOLDER_AUDIOBOOK = 2;
 
     private final BlockingQueue<FileEvent> eventQueue = new LinkedBlockingQueue<>();
+
+    // A watcher CREATE that lands while a scan of the same library is running would race the
+    // scan into a duplicate book row. Re-queue it (with a delay) until the scan finishes.
+    private static final int MAX_SCAN_DEFERRALS = 30;
+    private static final long SCAN_DEFERRAL_SECONDS = 10;
+    private final Map<String, Integer> scanDeferrals = new ConcurrentHashMap<>();
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
     private final BookFileTransactionalHandler bookFileTransactionalHandler;
@@ -135,6 +142,22 @@ public class LibraryFileEventProcessor {
         if (library.getLibraryPaths().stream().noneMatch(lp -> path.startsWith(lp.getPath()))) {
             log.warn("[SKIP] Path outside of library: '{}'", path);
             return;
+        }
+
+        if ("ENTRY_CREATE".equals(event.eventKind().name())) {
+            String deferralKey = event.libraryId() + "|" + path;
+            if (LibraryService.isLibraryScanning(event.libraryId())) {
+                int attempt = scanDeferrals.merge(deferralKey, 1, Integer::sum);
+                if (attempt <= MAX_SCAN_DEFERRALS) {
+                    log.debug("[DEFER] library {} is scanning; re-queueing '{}' in {}s ({}/{})",
+                            event.libraryId(), fileName, SCAN_DEFERRAL_SECONDS, attempt, MAX_SCAN_DEFERRALS);
+                    scheduler.schedule(() -> eventQueue.offer(event), SCAN_DEFERRAL_SECONDS, TimeUnit.SECONDS);
+                    return;
+                }
+                log.warn("[DEFER] library {} still scanning after {} deferrals; processing '{}' now",
+                        event.libraryId(), MAX_SCAN_DEFERRALS, fileName);
+            }
+            scanDeferrals.remove(deferralKey);
         }
 
         boolean isDirectory = event.isDirectory();

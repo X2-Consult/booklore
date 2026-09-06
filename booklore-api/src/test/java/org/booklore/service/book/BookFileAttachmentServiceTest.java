@@ -42,6 +42,8 @@ class BookFileAttachmentServiceTest {
     @Mock private FileMoveHelper fileMoveHelper;
     @Mock private BookMapper bookMapper;
     @Mock private BookService bookService;
+    @Mock private BookMergeService bookMergeService;
+    @Mock private org.booklore.service.audit.AuditService auditService;
     @Mock private EntityManager entityManager;
 
     @InjectMocks

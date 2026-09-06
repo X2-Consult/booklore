@@ -46,6 +46,14 @@ public interface BookRepository extends JpaRepository<BookEntity, Long>, JpaSpec
                                                                        @Param("fileSubPath") String fileSubPath,
                                                                        @Param("fileName") String fileName);
 
+    @Query("SELECT b FROM BookEntity b JOIN b.bookFiles bf WHERE b.libraryPath.id = :libraryPathId AND bf.fileSubPath = :fileSubPath AND bf.fileName = :fileName AND bf.isBookFormat = true AND (b.deleted IS NULL OR b.deleted = false) ORDER BY b.id ASC")
+    List<BookEntity> findAllByLibraryPathIdAndFileSubPathAndFileName(@Param("libraryPathId") Long libraryPathId,
+                                                                    @Param("fileSubPath") String fileSubPath,
+                                                                    @Param("fileName") String fileName);
+
+    @Query("SELECT DISTINCT b FROM BookEntity b LEFT JOIN FETCH b.bookFiles WHERE b.library.id = :libraryId AND b.isPhysical = false AND (b.deleted IS NULL OR b.deleted = false)")
+    List<BookEntity> findAllWithFilesByLibraryId(@Param("libraryId") Long libraryId);
+
     @Query("SELECT b.id FROM BookEntity b WHERE b.libraryPath.id IN :libraryPathIds AND (b.deleted IS NULL OR b.deleted = false)")
     List<Long> findAllBookIdsByLibraryPathIdIn(@Param("libraryPathIds") Collection<Long> libraryPathIds);
 

@@ -44,6 +44,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.booklore.service.audit.AuditService;
+import org.booklore.service.book.ExactFileDeduplicator;
 
 @Slf4j
 @Service
@@ -52,6 +53,17 @@ import org.booklore.service.audit.AuditService;
 public class LibraryService {
 
     private static final Set<Long> scanningLibraries = ConcurrentHashMap.newKeySet();
+
+    private void runExactFileDedup(long libraryId) {
+        try {
+            int groups = exactFileDeduplicator.collapseExactFileDuplicates(libraryId);
+            if (groups > 0) {
+                log.info("Library {}: collapsed {} exact-file duplicate group(s) after scan", libraryId, groups);
+            }
+        } catch (Exception e) {
+            log.error("Exact-file de-duplication failed for library {}: {}", libraryId, e.getMessage(), e);
+        }
+    }
 
     /**
      * Checks whether a library is currently being scanned.
@@ -66,6 +78,7 @@ public class LibraryService {
     private final LibraryPathRepository libraryPathRepository;
     private final BookRepository bookRepository;
     private final LibraryProcessingService libraryProcessingService;
+    private final ExactFileDeduplicator exactFileDeduplicator;
     private final BookMapper bookMapper;
     private final LibraryMapper libraryMapper;
     private final NotificationService notificationService;
@@ -161,6 +174,7 @@ public class LibraryService {
                     scanningLibraries.remove(libraryId);
                 }
                 log.info("Parsing task completed!");
+                runExactFileDedup(libraryId);
             });
         }
 
@@ -214,6 +228,7 @@ public class LibraryService {
                 scanningLibraries.remove(libraryId);
             }
             log.info("Parsing task completed!");
+            runExactFileDedup(libraryId);
         });
 
         auditService.log(AuditAction.LIBRARY_CREATED, "Library", libraryEntity.getId(), "Created library: " + libraryEntity.getName());
@@ -242,6 +257,7 @@ public class LibraryService {
                 scanningLibraries.remove(libraryId);
             }
             log.info("Parsing task completed!");
+            runExactFileDedup(libraryId);
         });
     }
 

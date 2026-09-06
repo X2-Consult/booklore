@@ -31,6 +31,15 @@ public class BookFileEntity {
     @JoinColumn(name = "book_id", nullable = false)
     private BookEntity book;
 
+    /**
+     * Denormalised copy of {@code book.libraryPath.id}. Kept in sync by
+     * {@link #syncLibraryPathId()} on persist/update; bulk updates (merges, moves) must set
+     * it explicitly. Together with {@code fileSubPath} + {@code fileName} it is the file's
+     * unique identity on disk. Null for physical / file-less books.
+     */
+    @Column(name = "library_path_id")
+    private Long libraryPathId;
+
     @Column(name = "file_name", length = 1000, nullable = false)
     private String fileName;
 
@@ -91,6 +100,14 @@ public class BookFileEntity {
     @Convert(converter = AudioFileChapterListConverter.class)
     @Column(name = "chapters_json", columnDefinition = "TEXT")
     private List<AudioFileChapter> chapters;
+
+    @PrePersist
+    @PreUpdate
+    void syncLibraryPathId() {
+        if (book != null && book.getLibraryPath() != null) {
+            libraryPathId = book.getLibraryPath().getId();
+        }
+    }
 
     public boolean isBook() {
         return isBookFormat;
