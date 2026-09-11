@@ -8,6 +8,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 import java.util.Set;
 
@@ -33,7 +34,7 @@ class GoodReadsParserBookTest {
                 .metadataPublicReviewsSettings(MetadataPublicReviewsSettings.builder().providers(Set.of()).build())
                 .build();
         when(appSettingService.getAppSettings()).thenReturn(settings);
-        parser = new GoodReadsParser(appSettingService);
+        parser = new GoodReadsParser(appSettingService, mock(MetadataProviderGuard.class));
     }
 
     private Document docWithApolloState(String apolloStateJson) {
@@ -82,5 +83,47 @@ class GoodReadsParserBookTest {
 
         assertThat(result.getDescription()).isEqualTo("Plain description key.");
         assertThat(result.getAsin()).isEqualTo("B00XXXXXXX");
+    }
+
+    // Shape of a real /book/auto_complete?format=json item (the fallback used when book pages are WAF-gated).
+    private static JSONObject autocompleteItem(String kcrPreviewUrl, boolean truncated) throws Exception {
+        return new JSONObject("""
+                {
+                  "bookId": "54493401",
+                  "bookTitleBare": "Project Hail Mary",
+                  "title": "Project Hail Mary",
+                  "author": { "name": "Andy Weir" },
+                  "imageUrl": "https://i.gr-assets.com/images/S/books/1597695864i/54493401._SY75_.jpg",
+                  "kcrPreviewUrl": %s,
+                  "description": {
+                    "html": "Ryland Grace is the sole survivor on a desperate, last-chance mission\\u2026",
+                    "truncated": %s,
+                    "fullContentUrl": "https://www.goodreads.com/book/show/54493401-project-hail-mary"
+                  }
+                }
+                """.formatted(kcrPreviewUrl == null ? "null" : "\"" + kcrPreviewUrl + "\"", truncated));
+    }
+
+    @Test
+    void autocompleteFallback_takesAsinFromKindlePreviewLink() throws Exception {
+        BookMetadata result = parser.mapAutocompleteItem(autocompleteItem(
+                "https://read.amazon.com.au/kp/embed?asin=B08FFJS3YW&ref=x_gr_w_preview_new_nf_story_au-20&preview=inline", true), "54493401");
+
+        assertThat(result.getAsin()).isEqualTo("B08FFJS3YW");
+        assertThat(result.getTitle()).isEqualTo("Project Hail Mary");
+    }
+
+    @Test
+    void autocompleteFallback_noPreviewLinkMeansNoAsin() throws Exception {
+        BookMetadata result = parser.mapAutocompleteItem(autocompleteItem(null, true), "54493401");
+
+        assertThat(result.getAsin()).isNull();
+    }
+
+    @Test
+    void autocompleteFallback_dropsTruncatedDescription_keepsCompleteOne() throws Exception {
+        assertThat(parser.mapAutocompleteItem(autocompleteItem(null, true), "54493401").getDescription()).isNull();
+        assertThat(parser.mapAutocompleteItem(autocompleteItem(null, false), "54493401").getDescription())
+                .startsWith("Ryland Grace is the sole survivor");
     }
 }

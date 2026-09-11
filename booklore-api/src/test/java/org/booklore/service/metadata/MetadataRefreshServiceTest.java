@@ -21,11 +21,15 @@ import org.booklore.repository.LibraryRepository;
 import org.booklore.repository.MetadataFetchJobRepository;
 import org.booklore.service.NotificationService;
 import org.booklore.service.appsettings.AppSettingService;
+import org.booklore.model.websocket.Topic;
 import org.booklore.service.metadata.parser.BookParser;
+import org.booklore.service.metadata.parser.MetadataProviderGuard;
 import org.booklore.task.TaskCancellationManager;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,9 +58,107 @@ class MetadataRefreshServiceTest {
     @Mock private PlatformTransactionManager transactionManager;
     @Mock private AuthenticationService authenticationService;
     @Mock private TaskCancellationManager cancellationManager;
+    @Mock private MetadataProviderGuard providerGuard;
 
     @InjectMocks
     private MetadataRefreshService service;
+
+    @Nested
+    class RefreshBatchTests {
+
+        private final BookParser amazonParser = mock(BookParser.class);
+
+        private void givenBooks(Long... ids) {
+            when(appSettingService.getAppSettings()).thenReturn(AppSettings.builder().build());
+            when(parserMap.get(MetadataProvider.Amazon)).thenReturn(amazonParser);
+            when(amazonParser.fetchTopMetadata(any(), any()))
+                    .thenReturn(BookMetadata.builder().provider(MetadataProvider.Amazon).title("Fetched").build());
+            when(bookRepository.findAllWithMetadataByIds(anySet())).thenAnswer(inv -> {
+                Long id = ((Set<Long>) inv.getArgument(0)).iterator().next();
+                return List.of(BookEntity.builder().id(id).metadata(BookMetadataEntity.builder().title("Book " + id).build()).build());
+            });
+            when(bookMapper.toBook(any(BookEntity.class))).thenAnswer(inv -> {
+                BookEntity entity = inv.getArgument(0);
+                return Book.builder().id(entity.getId()).metadata(BookMetadata.builder().title("Book " + entity.getId()).build()).build();
+            });
+        }
+
+        private MetadataRefreshRequest amazonTitleRefresh(Long... ids) {
+            MetadataRefreshOptions options = MetadataRefreshOptions.builder()
+                    .fieldOptions(MetadataRefreshOptions.FieldOptions.builder()
+                            .title(MetadataRefreshOptions.FieldProvider.builder().p1(MetadataProvider.Amazon).build())
+                            .build())
+                    .reviewBeforeApply(false)
+                    .build();
+            return MetadataRefreshRequest.builder()
+                    .refreshType(MetadataRefreshRequest.RefreshType.BOOKS)
+                    .bookIds(new LinkedHashSet<>(List.of(ids)))
+                    .refreshOptions(options)
+                    .build();
+        }
+
+        private MetadataBatchProgressNotification lastBatchNotification() {
+            ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+            verify(notificationService, atLeastOnce()).sendMessage(eq(Topic.BOOK_METADATA_BATCH_PROGRESS), captor.capture());
+            return (MetadataBatchProgressNotification) captor.getAllValues().getLast();
+        }
+
+        @Test
+        void providerRequestsRunBetweenTransactions_notInsideOne() {
+            givenBooks(1L);
+
+            service.refreshMetadata(amazonTitleRefresh(1L), "job-1");
+
+            InOrder inOrder = inOrder(transactionManager, amazonParser, bookMetadataUpdater);
+            inOrder.verify(transactionManager).getTransaction(any());
+            inOrder.verify(transactionManager).commit(any());
+            inOrder.verify(amazonParser).fetchTopMetadata(any(), any());
+            inOrder.verify(transactionManager).getTransaction(any());
+            inOrder.verify(bookMetadataUpdater).setBookMetadata(any());
+            inOrder.verify(transactionManager).commit(any());
+
+            MetadataBatchProgressNotification done = lastBatchNotification();
+            assertThat(done.getStatus()).isEqualTo("COMPLETED");
+            assertThat(done.getMessage()).isEqualTo("Batch metadata fetch successfully completed!");
+            assertThat(done.getWarnings()).isEmpty();
+        }
+
+        @Test
+        void blockedProvider_isReportedOnceAndCarriedToCompletion() {
+            givenBooks(1L, 2L, 3L);
+            when(providerGuard.isBlocked(MetadataProvider.Amazon)).thenReturn(false, true, true);
+
+            service.refreshMetadata(amazonTitleRefresh(1L, 2L, 3L), "job-1");
+
+            MetadataBatchProgressNotification done = lastBatchNotification();
+            assertThat(done.getStatus()).isEqualTo("COMPLETED");
+            assertThat(done.getMessage()).isEqualTo("Batch metadata fetch completed with warnings.");
+            assertThat(done.getWarnings()).singleElement().asString()
+                    .startsWith("Amazon started blocking requests")
+                    .contains("at book 2");
+        }
+
+        @Test
+        void blockedProvider_notReportedWhenBatchNeverQueriedIt() {
+            givenBooks(1L);
+            lenient().when(providerGuard.isBlocked(MetadataProvider.GoodReads)).thenReturn(true);
+
+            service.refreshMetadata(amazonTitleRefresh(1L), "job-1");
+
+            assertThat(lastBatchNotification().getWarnings()).isEmpty();
+        }
+
+        @Test
+        void missingBook_failsThatBookButFinishesTheBatch() {
+            givenBooks(1L, 2L);
+            when(bookRepository.findAllWithMetadataByIds(Set.of(1L))).thenReturn(List.of());
+
+            service.refreshMetadata(amazonTitleRefresh(1L, 2L), "job-1");
+
+            verify(amazonParser, times(1)).fetchTopMetadata(any(), any());
+            assertThat(lastBatchNotification().getStatus()).isEqualTo("COMPLETED");
+        }
+    }
 
     @Test
     void resolveMetadataRefreshOptions_returnsLibrarySpecificWhenMatched() {

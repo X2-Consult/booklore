@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -52,8 +51,10 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
     private static final Pattern SERIES_FROM_TITLE_PATTERN = Pattern.compile("\\(([^,(]+),\\s*#([\\d.]+)\\)\\s*$");
     private static final Pattern COVER_SIZE_TOKEN_PATTERN = Pattern.compile("\\._S[XY]\\d+_\\.");
     private static final Pattern GOODREADS_AUTHOR_ID_PATTERN = Pattern.compile("/author/show/(\\d+)");
+    private static final Pattern KCR_PREVIEW_ASIN_PATTERN = Pattern.compile("[?&]asin=([A-Z0-9]{10})(?:&|$)");
 
     private final AppSettingService appSettingService;
+    private final MetadataProviderGuard providerGuard;
 
     private record TitleInfo(String title, String subtitle) {}
 
@@ -86,6 +87,11 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
             }
         }
 
+        BookMetadata byIsbn = fetchByIsbn(fetchMetadataRequest.getIsbn());
+        if (byIsbn != null) {
+            return byIsbn;
+        }
+
         List<SearchTarget> targets = searchTargets(book, fetchMetadataRequest);
         List<BookMetadata> fetchedMetadata = fetchMetadataFromTargets(targets.stream().limit(1).toList());
         return fetchedMetadata.isEmpty() ? null : fetchedMetadata.getFirst();
@@ -111,29 +117,9 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
 
     @Override
     public List<BookMetadata> fetchMetadata(Book book, FetchMetadataRequest fetchMetadataRequest) {
-        String isbn = ParserUtils.cleanIsbn(fetchMetadataRequest.getIsbn());
-        if (isbn != null && !isbn.isBlank()) {
-            log.info("Goodreads Query URL (ISBN): {}{}", BASE_ISBN_URL, isbn);
-            try {
-                Document doc = fetchDoc(BASE_ISBN_URL + isbn);
-                String ogUrl = Optional.ofNullable(doc.selectFirst("meta[property=og:url]"))
-                        .map(e -> e.attr("content"))
-                        .orElse(null);
-
-                if (ogUrl != null && !ogUrl.isBlank()) {
-                    String goodreadsId = ogUrl.substring(ogUrl.lastIndexOf('/') + 1);
-                    if (!goodreadsId.isBlank()) {
-                        BookMetadata metadata = parseBookDetails(doc, goodreadsId);
-                        if (metadata != null) {
-                            return List.of(metadata);
-                        }
-                    }
-                }
-            } catch (WafChallengeException e) {
-                log.warn("GoodReads: WAF challenge on ISBN lookup, falling back to search");
-            } catch (Exception e) {
-                log.warn("GoodReads: ISBN lookup failed: {}", e.getMessage());
-            }
+        BookMetadata byIsbn = fetchByIsbn(fetchMetadataRequest.getIsbn());
+        if (byIsbn != null) {
+            return List.of(byIsbn);
         }
 
         List<SearchTarget> targets = searchTargets(book, fetchMetadataRequest).stream()
@@ -161,6 +147,34 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         return results;
     }
 
+    // GoodReads redirects /book/isbn/{isbn} to the matching book page, which is a more exact
+    // match than a title search. Returns null when there's no ISBN or the lookup doesn't land.
+    private BookMetadata fetchByIsbn(String rawIsbn) {
+        String isbn = ParserUtils.cleanIsbn(rawIsbn);
+        if (isbn == null || isbn.isBlank()) {
+            return null;
+        }
+        log.info("Goodreads Query URL (ISBN): {}{}", BASE_ISBN_URL, isbn);
+        try {
+            Document doc = fetchDoc(BASE_ISBN_URL + isbn);
+            String ogUrl = Optional.ofNullable(doc.selectFirst("meta[property=og:url]"))
+                    .map(e -> e.attr("content"))
+                    .orElse(null);
+
+            if (ogUrl != null && !ogUrl.isBlank()) {
+                String goodreadsId = ogUrl.substring(ogUrl.lastIndexOf('/') + 1);
+                if (!goodreadsId.isBlank()) {
+                    return parseBookDetails(doc, goodreadsId);
+                }
+            }
+        } catch (WafChallengeException e) {
+            log.warn("GoodReads: WAF challenge on ISBN lookup, falling back to search");
+        } catch (Exception e) {
+            log.warn("GoodReads: ISBN lookup failed: {}", e.getMessage());
+        }
+        return null;
+    }
+
     private List<BookMetadata> fetchMetadataFromTargets(List<SearchTarget> targets) {
         List<BookMetadata> results = new ArrayList<>();
         boolean detailReachable = true;
@@ -171,9 +185,6 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
             if (detailReachable) {
                 log.info("GoodReads: Fetching metadata for ID: {}", target.id());
                 try {
-                    if (!results.isEmpty()) {
-                        Thread.sleep(ThreadLocalRandom.current().nextLong(500, 1501));
-                    }
                     Document document = fetchDoc(BASE_BOOK_URL + target.id());
                     candidate = parseBookDetails(document, target.id());
                 } catch (WafChallengeException e) {
@@ -539,18 +550,16 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         }
 
         // Try the autocomplete JSON endpoint first — not gated behind WAF
-        try {
-            String autocompleteUrl = BASE_AUTOCOMPLETE_URL + URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
-            log.info("GoodReads: Autocomplete URL: {}", autocompleteUrl);
-            String jsonBody = fetchJsonBody(autocompleteUrl);
-            if (jsonBody != null) {
-                List<SearchTarget> targets = parseAutocompleteTargets(jsonBody, request);
-                if (!targets.isEmpty()) {
-                    return targets;
-                }
-            }
-        } catch (Exception e) {
-            log.warn("GoodReads: Autocomplete fetch failed: {}", e.getMessage());
+        List<SearchTarget> autocompleteTargets = fetchAutocompleteTargets(searchTerm, request);
+        String title = request.getTitle();
+        if (autocompleteTargets.isEmpty() && title != null && !title.isBlank() && !searchTerm.equals(title)) {
+            // Autocomplete matches on title text, so with the author appended it can return only
+            // "Summary of <title>" knockoffs, which the author filter then rejects. Retry on the
+            // bare title; the author filter still applies.
+            autocompleteTargets = fetchAutocompleteTargets(title, request);
+        }
+        if (!autocompleteTargets.isEmpty()) {
+            return autocompleteTargets;
         }
 
         // Fall back to HTML search page
@@ -604,7 +613,6 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
                 targets.add(new SearchTarget(String.valueOf(id), preview));
             }
 
-            Thread.sleep(Duration.ofSeconds(1));
             return targets;
 
         } catch (WafChallengeException e) {
@@ -612,6 +620,18 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
             return Collections.emptyList();
         } catch (Exception e) {
             log.error("Error fetching search page: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private List<SearchTarget> fetchAutocompleteTargets(String searchTerm, FetchMetadataRequest request) {
+        try {
+            String autocompleteUrl = BASE_AUTOCOMPLETE_URL + URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
+            log.info("GoodReads: Autocomplete URL: {}", autocompleteUrl);
+            String jsonBody = fetchJsonBody(autocompleteUrl);
+            return jsonBody != null ? parseAutocompleteTargets(jsonBody, request) : Collections.emptyList();
+        } catch (Exception e) {
+            log.warn("GoodReads: Autocomplete fetch failed: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -657,7 +677,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         }
     }
 
-    private BookMetadata mapAutocompleteItem(JSONObject item, String id) {
+    BookMetadata mapAutocompleteItem(JSONObject item, String id) {
         try {
             String rawTitle = normalizeNull(item.optString("bookTitleBare"));
             if (rawTitle == null) {
@@ -696,6 +716,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
                     .title(titleInfo.title())
                     .subtitle(titleInfo.subtitle())
                     .authors(author != null ? List.of(author) : null)
+                    .asin(extractAutocompleteAsin(item))
                     .description(description)
                     .pageCount(parseNumber(normalizeNull(item.optString("numPages")), Integer::parseInt))
                     .thumbnailUrl(coverUrl)
@@ -710,12 +731,25 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         }
     }
 
+    // The autocomplete item has no ASIN field, but for books with a Kindle edition its Kindle
+    // Cloud Reader preview link carries one: https://read.amazon.com.au/kp/embed?asin=B08FFJS3YW&...
+    private String extractAutocompleteAsin(JSONObject item) {
+        String previewUrl = normalizeNull(item.optString("kcrPreviewUrl"));
+        if (previewUrl == null) return null;
+        Matcher matcher = KCR_PREVIEW_ASIN_PATTERN.matcher(previewUrl);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    // Autocomplete descriptions are cut at ~200 characters and flagged "truncated". A stub like
+    // that would win the description slot over a full one from a lower-priority provider, and in
+    // REPLACE_MISSING mode it would never be replaced later, so leave the field empty instead.
     private String extractAutocompleteDescription(JSONObject item) {
         try {
             Object desc = item.opt("description");
             if (desc == null) return null;
             String html;
             if (desc instanceof JSONObject descObj) {
+                if (descObj.optBoolean("truncated", false)) return null;
                 html = normalizeNull(descObj.optString("html"));
             } else {
                 html = normalizeNull(desc.toString());
@@ -1026,7 +1060,14 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
     // fall back to the shallower autocomplete preview (which is missing fields like asin).
     private static final int MAX_FETCH_ATTEMPTS = 3;
 
+    // Once the retries are exhausted the gate is treated as a block: later page fetches skip the
+    // network for the cooldown (callers fall back to autocomplete data) instead of each burning
+    // another three challenged requests and making the block stickier.
     private Document fetchDoc(String url) {
+        if (providerGuard.isBlocked(MetadataProvider.GoodReads)) {
+            log.debug("GoodReads: skipping page fetch during WAF cooldown: {}", url);
+            throw new WafChallengeException();
+        }
         WafChallengeException lastWafException = null;
         for (int attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
             try {
@@ -1039,10 +1080,12 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
                 }
             }
         }
+        providerGuard.markBlocked(MetadataProvider.GoodReads);
         throw lastWafException;
     }
 
     private Document fetchDocOnce(String url) {
+        providerGuard.awaitTurn(MetadataProvider.GoodReads);
         try {
             Connection.Response response = Jsoup.connect(url)
                     .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
@@ -1080,6 +1123,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
     }
 
     private String fetchJsonBody(String url) {
+        providerGuard.awaitTurn(MetadataProvider.GoodReads);
         try {
             Connection.Response response = Jsoup.connect(url)
                     .header("accept", "application/json,text/plain,*/*")
@@ -1100,8 +1144,11 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         }
     }
 
-    private static boolean isWafChallenge(int statusCode, String html) {
+    static boolean isWafChallenge(int statusCode, String html) {
         if (statusCode == 202) return true;
+        // Real book pages served to a client holding a WAF token embed AWS WAF's challenge.js
+        // (it refreshes the token), so a page carrying the Next.js payload is content, not a gate.
+        if (html != null && html.contains("__NEXT_DATA__")) return false;
         return html != null && (html.contains("awsWafCookieDomainList")
                 || html.contains("AwsWafIntegration")
                 || html.contains("id=\"challenge-container\"")

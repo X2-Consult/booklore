@@ -24,7 +24,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -94,6 +93,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
     private static final LocaleInfo DEFAULT_LOCALE_INFO = new LocaleInfo("en-US,en;q=0.9", Locale.US);
 
     private final AppSettingService appSettingService;
+    private final MetadataProviderGuard providerGuard;
 
     private record LocaleInfo(String acceptLanguage, Locale locale) {}
     private record TitleInfo(String title, String subtitle) {}
@@ -117,16 +117,10 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
         List<BookMetadata> results = new ArrayList<>();
         for (int i = 0; i < amazonBookIds.size() && results.size() < COUNT_DETAILED_METADATA_TO_GET; i++) {
             try {
-                if (i > 0) {
-                    Thread.sleep(ThreadLocalRandom.current().nextLong(500, 1501));
-                }
                 BookMetadata metadata = getBookMetadata(amazonBookIds.get(i));
                 if (metadata != null) {
                     results.add(metadata);
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
             } catch (Exception e) {
                 log.error("Error fetching metadata for ASIN: {}", amazonBookIds.get(i), e);
             }
@@ -227,7 +221,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
                 }
             }
         } catch (AmazonAntiScrapingException e) {
-            log.debug("Aborting Amazon search due to anti-scraping (503).");
+            log.debug("Aborting Amazon search due to anti-scraping block.");
             return null;
         } catch (Exception e) {
             log.error("Failed to get asin: {}", e.getMessage(), e);
@@ -269,7 +263,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
         try {
             doc = fetchDocument("https://www.amazon." + domain + BASE_BOOK_URL_SUFFIX + amazonBookId);
         } catch (AmazonAntiScrapingException e) {
-            log.debug("Aborting metadata fetch for ID {} due to status code (503).", amazonBookId);
+            log.debug("Aborting metadata fetch for ID {} due to anti-scraping block.", amazonBookId);
             return null;
         }
 
@@ -837,10 +831,16 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
     }
 
     private Document fetchDocument(String url) {
-        try {
-            String domain = appSettingService.getAppSettings().getMetadataProviderSettings().getAmazon().getDomain();
-            String amazonCookie = appSettingService.getAppSettings().getMetadataProviderSettings().getAmazon().getCookie();
+        String domain = appSettingService.getAppSettings().getMetadataProviderSettings().getAmazon().getDomain();
+        String amazonCookie = appSettingService.getAppSettings().getMetadataProviderSettings().getAmazon().getCookie();
 
+        if (providerGuard.isBlocked(MetadataProvider.Amazon, amazonCookie)) {
+            log.debug("Amazon: skipping request during anti-bot cooldown. URL: {}", url);
+            throw new AmazonAntiScrapingException("Amazon anti-bot cooldown");
+        }
+        providerGuard.awaitTurn(MetadataProvider.Amazon);
+
+        try {
             LocaleInfo localeInfo = getLocaleInfoForDomain(domain);
 
             Connection connection = Jsoup.connect(url)
@@ -874,10 +874,18 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             }
 
             Connection.Response response = connection.execute();
-            return response.parse();
+            String body = response.body();
+            if (isBotChallenge(body)) {
+                log.info("Amazon returned a bot-check page instead of content. Please note: this is NOT a Booklore bug. Action required: Update cookies or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
+                providerGuard.markBlocked(MetadataProvider.Amazon, amazonCookie);
+                throw new AmazonAntiScrapingException("Amazon bot challenge");
+            }
+            providerGuard.clearBlock(MetadataProvider.Amazon);
+            return Jsoup.parse(body, url);
         } catch (HttpStatusException e) {
             if (e.getStatusCode() == 503) {
                 log.info("Amazon service unavailable (503). Please note: this is NOT a Booklore bug. Likely causes include: rate-limiting or failed captcha. Action required: Update cookies or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
+                providerGuard.markBlocked(MetadataProvider.Amazon, amazonCookie);
                 throw new AmazonAntiScrapingException("Amazon 503 Anti-Scraping");
             }
             if (e.getStatusCode() == 500) {
@@ -890,6 +898,16 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             log.error("Error parsing url: {}", url, e);
             throw new RuntimeException(e);
         }
+    }
+
+    // Amazon answers suspected bots with HTTP 200 and a challenge page rather than an error:
+    // either Akamai's JS proof-of-work interstitial (bm-verify, POSTed to /_sec/verify) or the
+    // classic "enter the characters you see" captcha. Parsed as content, both look like "no results".
+    static boolean isBotChallenge(String html) {
+        return html != null && (html.contains("/_sec/verify")
+                || html.contains("bm-verify")
+                || html.contains("validateCaptcha")
+                || html.contains("opfcaptcha"));
     }
 
     private static LocaleInfo getLocaleInfoForDomain(String domain) {

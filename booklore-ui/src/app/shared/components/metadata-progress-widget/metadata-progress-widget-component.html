@@ -34,6 +34,14 @@
           {{ task.value.message }}
         </div>
 
+        @if (task.value.warnings?.length) {
+          <ul class="task-warnings">
+            @for (warning of task.value.warnings; track warning) {
+              <li><i class="pi pi-exclamation-triangle"></i><span>{{ warning }}</span></li>
+            }
+          </ul>
+        }
+
         <div class="task-progress-info" [innerHTML]="t('bookProgress', { current: task.value.status === 'COMPLETED' || task.value.completed >= task.value.total ? task.value.total : task.value.completed + 1, total: task.value.total })">
         </div>
 

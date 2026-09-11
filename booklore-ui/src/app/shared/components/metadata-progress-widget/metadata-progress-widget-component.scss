@@ -51,6 +51,24 @@
   margin-bottom: 0.5rem;
 }
 
+.task-warnings {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: #fbbf24;
+
+  li {
+    display: flex;
+    gap: 0.4rem;
+    align-items: baseline;
+  }
+
+  li + li {
+    margin-top: 0.25rem;
+  }
+}
+
 .task-progress-info {
   font-size: 0.875rem;
   color: #d1d5db;
