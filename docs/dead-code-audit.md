@@ -5,95 +5,24 @@ Nothing here is a live bug today — these are unreferenced classes, orphaned sc
 latent data-integrity gap. Recorded so they can be closed deliberately rather than
 rediscovered.
 
-Each item lists what it is, why it is dead, and the recommended action. **None of these have
-been actioned yet.**
+Each item lists what it is, why it is dead, and the recommended action. Items 1-4 were
+resolved on 2026-09-11; **items 5-7 are still open.**
 
 ---
 
-## 1. `LoginRateLimitService` — delete (superseded)
+## 1-4. Unreferenced classes — deleted 2026-09-11
 
-`booklore-api/src/main/java/org/booklore/config/security/service/LoginRateLimitService.java`
+Before deleting, each was traced through git history to rule out "unbuilt feature" as opposed
+to "dead". None was scaffolding for something unfinished — each was either superseded or lost
+its only caller deliberately.
 
-A `@Service` with zero injection sites. `AuthRateLimitService` in the same package replaced it
-and is the one `AuthenticationService:137-138` actually calls.
-
-`AuthRateLimitService` is a strict superset — it adds username-keyed limiting (not just IP),
-refresh-token limiting, and a `maximumSize(10000)` bound on the Caffeine cache. The dead class
-lacks that bound, so it is also the worse implementation of the two.
-
-**Action:** delete the file. Nothing references it; it is instantiated as a bean at startup and
-never used.
-
----
-
-## 2. `AdminEventBroadcaster` — delete (superseded)
-
-`booklore-api/src/main/java/org/booklore/service/event/AdminEventBroadcaster.java`
-
-Zero references. `broadcastAdminEvent` fans a `LogNotification` out to every admin over
-`Topic.LOG`.
-
-This looked at first like a half-wired feature worth finishing — the receiving end is fully
-built (`booklore-ui/src/app/app.component.ts:143` subscribes to `/user/queue/log` and routes
-into `notificationEventService`). It is not. The codebase already has a better-shaped
-equivalent that ~40 call sites use:
-
-```java
-notificationService.sendMessageToPermissions(
-    Topic.LOG, LogNotification.info(msg), Set.of(ADMIN, MANAGE_LIBRARY));
-```
-
-That routes through `NotificationService` rather than a raw `SimpMessagingTemplate`, and
-targets by permission instead of hardcoding admin-only.
-
-**Action:** delete the file. If an admin-only broadcast is ever wanted, it is a one-line call to
-the existing `sendMessageToPermissions` with `Set.of(ADMIN)`.
-
----
-
-## 3. Duplicate join-table entities — delete (redundant second mapping)
-
-| Entity | Repository | Table |
+| Class(es) | History | Outcome |
 |---|---|---|
-| `BookMetadataAuthorMapping` | `BookMetadataAuthorMappingRepository` | `book_metadata_author_mapping` |
-| `BookMetadataCategoryMapping` | `BookMetadataCategoryMappingRepository` | `book_metadata_category_mapping` |
-| `BookShelfMapping` | `BookShelfMappingRepository` | `book_shelf_mapping` |
-
-All three entities are referenced **only** by their own repository, and all three repositories
-are referenced nowhere.
-
-All three tables are already mapped — as `@ManyToMany` + `@JoinTable` on the owning side:
-
-- `BookMetadataEntity:368-375` → `book_metadata_author_mapping`
-- `BookMetadataEntity:377-384` → `book_metadata_category_mapping`
-- `BookEntity:72-78` and `ShelfEntity:46-50` → `book_shelf_mapping`
-
-So each table carries **two** JPA mappings: the live `@JoinTable` and a redundant standalone
-`@Entity`. That is worth removing rather than just ignoring — two entity mappings over one
-table can produce first-level-cache and flush-ordering surprises the moment anyone starts
-using the second one.
-
-Supporting evidence that these are leftovers: the sibling join tables
-`book_metadata_mood_mapping` and `book_metadata_tag_mapping` have no such duplicate entity.
-
-**Action:** delete all six files (3 entities + 3 repositories), plus the now-unused
-`BookMetadataAuthorKey`, `BookMetadataCategoryKey`, `BookShelfKey` id classes. Leave the tables
-alone — they hold live data, managed by the `@JoinTable` mappings.
-
----
-
-## 4. Unused repositories over live entities — delete
-
-- `ComicCreatorMappingRepository` — `ComicCreatorMappingEntity` is very much alive, but reached
-  through the cascaded collection on `ComicMetadataEntity` (used by `BookCreatorService`,
-  `BookMetadataUpdater`, `BookRuleEvaluatorService`, `ComicMetadataMapper`). The repository's
-  three finders are never called.
-- `UserSettingRepository` — `UserSettingEntity` is alive via the collection on
-  `BookLoreUserEntity` (used by `UserService`, `UserDefaultsService`, `DefaultSettingInitializer`,
-  `HardcoverSyncSettingsService`). Its one method, `countBySettingKeyAndSettingValue`, is never
-  called.
-
-**Action:** delete both interfaces. The entities stay.
+| `LoginRateLimitService` | Added in `f7650d9f`; the same day `03272f7c` added `AuthRateLimitService`, moved every call site over, and left the old file behind. The replacement is a strict superset (username-keyed limits, refresh-token limits, bounded cache). | Deleted |
+| `AdminEventBroadcaster` | Added in `63dc2bcb` to toast admins when a file failed to import during a folder-as-book scan. The multi-format rewrite `3f334202` deleted that processor and both call sites — and the behaviour went with them. | Deleted |
+| `BookMetadataAuthorMapping`, `BookMetadataCategoryMapping`, `BookShelfMapping` + their repositories and `*Key` id classes | A batch-fetch optimisation (`7a4a401e`, June 2025) replaced six days later by `@EntityGraph` (`32b35d4a`). When author ordering added `sort_order` to `book_metadata_author_mapping` (`9c249fff`), the stale entity was not updated — its `(book_id, author_id)` id no longer matched the table's `(book_id, sort_order)` primary key, so reviving it would have been actively wrong. | Deleted; tables untouched (live via the `@ManyToMany` `@JoinTable` mappings) |
+| `ComicCreatorMappingRepository` | Created with the comic-metadata feature (`c1c72ea7`); its sibling repositories are all used, this one never was. | Deleted |
+| `UserSettingRepository` | Its only caller ever was `TelemetryService` (counting Hardcover-sync users for the install ping); upstream removed telemetry deliberately in `23559d8b` and missed this file. | Deleted |
 
 ---
 
@@ -202,4 +131,4 @@ Recorded so they are not re-investigated:
 - **`AuditAction` enum** — all 51 values are emitted somewhere. `DUPLICATE_BOOKS_MERGED` was the
   last unused one and is now wired in `BookMergeService`.
 - **`ComicCreatorMappingEntity`, `UserSettingEntity`** — live, reached via cascaded collections.
-  Only their repositories are dead (item 4).
+  Only their repositories were dead (item 4, now deleted).
