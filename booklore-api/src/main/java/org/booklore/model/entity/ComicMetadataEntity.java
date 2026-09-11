@@ -100,7 +100,9 @@ public class ComicMetadataEntity {
     @Builder.Default
     private Set<ComicLocationEntity> locations = new HashSet<>();
 
-    @OneToMany(mappedBy = "comicMetadata", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
+    // orphanRemoval: this is the inverse side, so without it removing a mapping from the set
+    // (BookMetadataUpdater replacing a role's creators) never deletes the row.
+    @OneToMany(mappedBy = "comicMetadata", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true, fetch = FetchType.LAZY)
     @Fetch(FetchMode.SUBSELECT)
     @Builder.Default
     private Set<ComicCreatorMappingEntity> creatorMappings = new HashSet<>();

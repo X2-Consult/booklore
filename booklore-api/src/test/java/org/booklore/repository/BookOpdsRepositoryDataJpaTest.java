@@ -54,7 +54,7 @@ import static org.mockito.Mockito.mock;
         "app.features.oidc-enabled=false"
 })
 @Import(BookOpdsRepositoryDataJpaTest.TestConfig.class)
-class BookOpdsRepositoryDataJpaTest {
+public class BookOpdsRepositoryDataJpaTest {
 
     @Autowired
     private BookOpdsRepository bookOpdsRepository;

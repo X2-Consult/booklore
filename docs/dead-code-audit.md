@@ -21,8 +21,38 @@ its only caller deliberately.
 | `LoginRateLimitService` | Added in `f7650d9f`; the same day `03272f7c` added `AuthRateLimitService`, moved every call site over, and left the old file behind. The replacement is a strict superset (username-keyed limits, refresh-token limits, bounded cache). | Deleted |
 | `AdminEventBroadcaster` | Added in `63dc2bcb` to toast admins when a file failed to import during a folder-as-book scan. The multi-format rewrite `3f334202` deleted that processor and both call sites — and the behaviour went with them. | Deleted |
 | `BookMetadataAuthorMapping`, `BookMetadataCategoryMapping`, `BookShelfMapping` + their repositories and `*Key` id classes | A batch-fetch optimisation (`7a4a401e`, June 2025) replaced six days later by `@EntityGraph` (`32b35d4a`). When author ordering added `sort_order` to `book_metadata_author_mapping` (`9c249fff`), the stale entity was not updated — its `(book_id, author_id)` id no longer matched the table's `(book_id, sort_order)` primary key, so reviving it would have been actively wrong. | Deleted; tables untouched (live via the `@ManyToMany` `@JoinTable` mappings) |
-| `ComicCreatorMappingRepository` | Created with the comic-metadata feature (`c1c72ea7`); its sibling repositories are all used, this one never was. | Deleted |
+| `ComicCreatorMappingRepository` | Created with the comic-metadata feature (`c1c72ea7`); its sibling repositories are all used, this one never was. | Deleted — but its unused `deleteByComicMetadataBookId` pointed at a real bug (below) |
 | `UserSettingRepository` | Its only caller ever was `TelemetryService` (counting Hardcover-sync users for the install ping); upstream removed telemetry deliberately in `23559d8b` and missed this file. | Deleted |
+
+### Real bugs found while tracing these
+
+**Comic creators were duplicated on every metadata save.** `ComicMetadataEntity.creatorMappings`
+is the inverse (`mappedBy`) side with no `orphanRemoval`, so `BookMetadataUpdater.updateCreatorRole`
+clearing a role before re-adding its creators only emptied the in-memory set — the old rows
+survived the flush. Every save that carried creators therefore re-inserted all of them: an
+unchanged inker became two rows, a replaced penciller kept the old name alongside the new, and
+clearing a role did nothing. The UI hid it (the DTO mapper collects names into a `Set`), but magic
+shelves matched stale creators and `CbxMetadataWriter` joins names without de-duplicating, so
+write-back put `"A, A"` into `ComicInfo.xml`.
+
+A second defect masked part of it: `MetadataChangeDetector.hasCreatorChanges` compared only the
+total creator *count*, so swapping one creator for another (or moving a name between roles) was
+judged "no change" and the save was skipped entirely.
+
+Fixed with `orphanRemoval = true` and a per-role name comparison, guarded by
+`ComicCreatorUpdateIntegrationTest` (real DB) and new `MetadataChangeDetectorTest` cases. Rows
+accumulated before the fix are **not** cleaned up by a migration. Exact duplicates are never
+legitimate and can be counted with:
+
+```sql
+SELECT count(*) FROM (
+  SELECT 1 FROM comic_metadata_creator_mapping
+  GROUP BY book_id, creator_id, role HAVING count(*) > 1) d;
+```
+
+Any later metadata edit to an affected book rewrites its creator rows cleanly, but a save with
+no changes is skipped by the detector and leaves the duplicates in place. Stale rows with a
+*different* name cannot be told apart from legitimate ones without history.
 
 ---
 

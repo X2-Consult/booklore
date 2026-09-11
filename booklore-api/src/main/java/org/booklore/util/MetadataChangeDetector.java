@@ -5,6 +5,7 @@ import org.booklore.model.MetadataClearFlags;
 import org.booklore.model.dto.BookMetadata;
 import org.booklore.model.dto.ComicMetadata;
 import org.booklore.model.entity.*;
+import org.booklore.model.enums.ComicCreatorRole;
 
 import java.util.*;
 import java.util.function.Function;
@@ -556,32 +557,22 @@ public class MetadataChangeDetector {
         return entities.stream().map(ComicLocationEntity::getName).collect(Collectors.toSet());
     }
 
+    // Compared by name per role, like characters/teams/locations. A count-only comparison missed
+    // renames (swapping one penciller for another), so the whole update was skipped as unchanged.
     private static boolean hasCreatorChanges(ComicMetadata dto, ComicMetadataEntity entity) {
-        // For creators, we do a simplified comparison based on whether there are any creators in DTO
-        boolean dtoHasCreators = (dto.getPencillers() != null && !dto.getPencillers().isEmpty())
-                || (dto.getInkers() != null && !dto.getInkers().isEmpty())
-                || (dto.getColorists() != null && !dto.getColorists().isEmpty())
-                || (dto.getLetterers() != null && !dto.getLetterers().isEmpty())
-                || (dto.getCoverArtists() != null && !dto.getCoverArtists().isEmpty())
-                || (dto.getEditors() != null && !dto.getEditors().isEmpty());
-
-        boolean entityHasCreators = entity.getCreatorMappings() != null && !entity.getCreatorMappings().isEmpty();
-
-        // If both have no creators, no change
-        if (!dtoHasCreators && !entityHasCreators) return false;
-
-        // If one has creators and other doesn't, there's a change
-        if (dtoHasCreators != entityHasCreators) return true;
-
-        // Both have creators - compare counts as a basic check
-        int dtoCount = countNonNull(dto.getPencillers()) + countNonNull(dto.getInkers())
-                + countNonNull(dto.getColorists()) + countNonNull(dto.getLetterers())
-                + countNonNull(dto.getCoverArtists()) + countNonNull(dto.getEditors());
-
-        return dtoCount != entity.getCreatorMappings().size();
+        return !stringSetsEqual(dto.getPencillers(), extractCreatorNames(entity, ComicCreatorRole.PENCILLER))
+                || !stringSetsEqual(dto.getInkers(), extractCreatorNames(entity, ComicCreatorRole.INKER))
+                || !stringSetsEqual(dto.getColorists(), extractCreatorNames(entity, ComicCreatorRole.COLORIST))
+                || !stringSetsEqual(dto.getLetterers(), extractCreatorNames(entity, ComicCreatorRole.LETTERER))
+                || !stringSetsEqual(dto.getCoverArtists(), extractCreatorNames(entity, ComicCreatorRole.COVER_ARTIST))
+                || !stringSetsEqual(dto.getEditors(), extractCreatorNames(entity, ComicCreatorRole.EDITOR));
     }
 
-    private static int countNonNull(Set<String> set) {
-        return set == null ? 0 : set.size();
+    private static Set<String> extractCreatorNames(ComicMetadataEntity entity, ComicCreatorRole role) {
+        if (entity.getCreatorMappings() == null) return Collections.emptySet();
+        return entity.getCreatorMappings().stream()
+                .filter(m -> m.getRole() == role)
+                .map(m -> m.getCreator().getName())
+                .collect(Collectors.toSet());
     }
 }

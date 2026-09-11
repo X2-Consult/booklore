@@ -2,11 +2,16 @@ package org.booklore.util;
 
 import org.booklore.model.MetadataClearFlags;
 import org.booklore.model.dto.BookMetadata;
+import org.booklore.model.dto.ComicMetadata;
 import org.booklore.model.entity.AuthorEntity;
 import org.booklore.model.entity.BookMetadataEntity;
 import org.booklore.model.entity.CategoryEntity;
+import org.booklore.model.entity.ComicCreatorEntity;
+import org.booklore.model.entity.ComicCreatorMappingEntity;
+import org.booklore.model.entity.ComicMetadataEntity;
 import org.booklore.model.entity.MoodEntity;
 import org.booklore.model.entity.TagEntity;
+import org.booklore.model.enums.ComicCreatorRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -807,5 +812,53 @@ public class MetadataChangeDetectorTest {
     void testHasValueChanges_whenFloatSeriesNumberUnchanged_returnsFalse() {
         boolean result = MetadataChangeDetector.hasValueChanges(newMeta, existingMeta, clearFlags);
         assertFalse(result, "Should return false when series number unchanged");
+    }
+
+    private void givenExistingComicCreator(String name, ComicCreatorRole role) {
+        if (existingMeta.getComicMetadata() == null) {
+            existingMeta.setComicMetadata(ComicMetadataEntity.builder().bookId(1L).build());
+        }
+        ComicMetadataEntity comic = existingMeta.getComicMetadata();
+        comic.getCreatorMappings().add(ComicCreatorMappingEntity.builder()
+                .comicMetadata(comic)
+                .creator(ComicCreatorEntity.builder().name(name).build())
+                .role(role)
+                .build());
+    }
+
+    // Matches ComicMetadataEntity's builder defaults, so the only difference under test is creators.
+    private static ComicMetadata.ComicMetadataBuilder comicDto() {
+        return ComicMetadata.builder().readingDirection("ltr").blackAndWhite(false).manga(false);
+    }
+
+    @Test
+    void testIsDifferent_whenComicCreatorRenamedWithSameCount_returnsTrue() {
+        givenExistingComicCreator("Old Artist", ComicCreatorRole.PENCILLER);
+        newMeta.setComicMetadata(comicDto().pencillers(Set.of("New Artist")).build());
+
+        assertTrue(MetadataChangeDetector.isDifferent(newMeta, existingMeta, clearFlags),
+                "Swapping one creator for another keeps the count the same but is still a change");
+    }
+
+    @Test
+    void testIsDifferent_whenComicCreatorMovesToAnotherRole_returnsTrue() {
+        givenExistingComicCreator("Jim Lee", ComicCreatorRole.PENCILLER);
+        newMeta.setComicMetadata(comicDto().inkers(Set.of("Jim Lee")).build());
+
+        assertTrue(MetadataChangeDetector.isDifferent(newMeta, existingMeta, clearFlags),
+                "Same name under a different role is a change");
+    }
+
+    @Test
+    void testIsDifferent_whenComicCreatorsUnchanged_returnsFalse() {
+        givenExistingComicCreator("Jim Lee", ComicCreatorRole.PENCILLER);
+        givenExistingComicCreator("Scott Williams", ComicCreatorRole.INKER);
+        newMeta.setComicMetadata(comicDto()
+                .pencillers(Set.of("Jim Lee"))
+                .inkers(Set.of("Scott Williams"))
+                .colorists(Set.of())
+                .build());
+
+        assertFalse(MetadataChangeDetector.isDifferent(newMeta, existingMeta, clearFlags));
     }
 }
