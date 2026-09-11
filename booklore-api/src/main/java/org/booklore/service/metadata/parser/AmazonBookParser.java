@@ -94,6 +94,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
 
     private final AppSettingService appSettingService;
     private final MetadataProviderGuard providerGuard;
+    private final BrowserPageFetcher browserPageFetcher;
 
     private record LocaleInfo(String acceptLanguage, Locale locale) {}
     private record TitleInfo(String title, String subtitle) {}
@@ -839,10 +840,15 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             throw new AmazonAntiScrapingException("Amazon anti-bot cooldown");
         }
         providerGuard.awaitTurn(MetadataProvider.Amazon);
+        LocaleInfo localeInfo = getLocaleInfoForDomain(domain);
+
+        Optional<BrowserPageFetcher.FetchedPage> browserPage =
+                browserPageFetcher.fetch(url, Map.of("Accept-Language", localeInfo.acceptLanguage), html -> !isBotChallenge(html));
+        if (browserPage.isPresent()) {
+            return checkBrowserPage(browserPage.get(), url, amazonCookie);
+        }
 
         try {
-            LocaleInfo localeInfo = getLocaleInfoForDomain(domain);
-
             Connection connection = Jsoup.connect(url)
                     .header("accept", "text/html, application/json")
                     .header("accept-language", localeInfo.acceptLanguage)
@@ -898,6 +904,16 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             log.error("Error parsing url: {}", url, e);
             throw new RuntimeException(e);
         }
+    }
+
+    private Document checkBrowserPage(BrowserPageFetcher.FetchedPage page, String url, String amazonCookie) {
+        if (!page.ready() || isBotChallenge(page.html()) || page.status() == 503) {
+            log.info("Amazon kept serving a bot check (or 503) to the headless browser. Please note: this is NOT a Booklore bug. URL: {}", url);
+            providerGuard.markBlocked(MetadataProvider.Amazon, amazonCookie);
+            throw new AmazonAntiScrapingException("Amazon bot challenge (browser)");
+        }
+        providerGuard.clearBlock(MetadataProvider.Amazon);
+        return Jsoup.parse(page.html(), page.url());
     }
 
     // Amazon answers suspected bots with HTTP 200 and a challenge page rather than an error:

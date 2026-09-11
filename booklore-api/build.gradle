@@ -83,6 +83,9 @@ dependencies {
 
     // --- JSON & Web Scraping ---
     implementation 'org.jsoup:jsoup:1.22.2'
+    // Headless Chromium for Amazon/GoodReads pages that bot-check plain HTTP clients.
+    // Bundles its Node driver for every platform (~190 MB); Chromium itself downloads on first use.
+    implementation 'com.microsoft.playwright:playwright:1.62.0'
 
     // --- Mapping (DTOs & Entities) ---
     implementation 'org.mapstruct:mapstruct:1.6.3'
@@ -132,6 +135,8 @@ hibernate {
 test {
     useJUnitPlatform()
     jvmArgs("-XX:+EnableDynamicAgentLoading")
+    // Never let a test download or launch Chromium; BrowserPageFetcherLiveTest opts back in explicitly.
+    environment 'METADATA_BROWSER_ENABLED', 'false'
     finalizedBy jacocoTestReport
 }
 

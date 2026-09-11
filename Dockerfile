@@ -55,6 +55,9 @@ LABEL org.opencontainers.image.title="BookLore" \
       org.opencontainers.image.base.name="docker.io/library/eclipse-temurin:25-jre-alpine"
 
 ENV JAVA_TOOL_OPTIONS="-XX:+UseG1GC -XX:+UseCompactObjectHeaders -XX:+UseStringDeduplication -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+# Playwright's Node driver and Chromium are glibc builds and can't run on this musl (Alpine) base,
+# so Amazon/GoodReads pages use plain HTTP here instead of the headless browser.
+ENV METADATA_BROWSER_ENABLED=false
 
 ARG TARGETARCH
 RUN apk update && apk add --no-cache su-exec libstdc++ libgcc && \

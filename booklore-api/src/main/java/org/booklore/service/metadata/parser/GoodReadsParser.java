@@ -55,6 +55,7 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
 
     private final AppSettingService appSettingService;
     private final MetadataProviderGuard providerGuard;
+    private final BrowserPageFetcher browserPageFetcher;
 
     private record TitleInfo(String title, String subtitle) {}
 
@@ -1068,6 +1069,24 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
             log.debug("GoodReads: skipping page fetch during WAF cooldown: {}", url);
             throw new WafChallengeException();
         }
+
+        // The headless browser solves the WAF challenge itself (it already waited for it), so a
+        // page that is still gated afterwards is a real block rather than something to retry.
+        if (browserPageFetcher.isAvailable()) {
+            providerGuard.awaitTurn(MetadataProvider.GoodReads);
+            Optional<BrowserPageFetcher.FetchedPage> browserPage =
+                    browserPageFetcher.fetch(url, Map.of(), html -> !isWafChallenge(200, html));
+            if (browserPage.isPresent()) {
+                BrowserPageFetcher.FetchedPage page = browserPage.get();
+                if (!page.ready()) {
+                    log.warn("GoodReads: WAF challenge persisted in the headless browser: {}", url);
+                    providerGuard.markBlocked(MetadataProvider.GoodReads);
+                    throw new WafChallengeException();
+                }
+                return Jsoup.parse(page.html(), page.url());
+            }
+        }
+
         WafChallengeException lastWafException = null;
         for (int attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
             try {

@@ -18,7 +18,7 @@ import static org.mockito.Mockito.mock;
  */
 class GoodReadsParserAuthorTest {
 
-    private final GoodReadsParser parser = new GoodReadsParser(mock(AppSettingService.class), mock(MetadataProviderGuard.class));
+    private final GoodReadsParser parser = new GoodReadsParser(mock(AppSettingService.class), mock(MetadataProviderGuard.class), mock(BrowserPageFetcher.class));
 
     private Document docWithApolloState(String apolloStateJson) {
         String nextData = "{\"props\":{\"pageProps\":{\"apolloState\":" + apolloStateJson + "}}}";

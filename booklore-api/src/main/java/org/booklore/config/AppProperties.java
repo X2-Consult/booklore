@@ -16,6 +16,7 @@ public class AppProperties {
     private String repoDir;
     private RemoteAuth remoteAuth;
     private Boolean forceDisableOidc = false;
+    private MetadataBrowser metadataBrowser = new MetadataBrowser();
 
     /**
      * Type of disk storage where library files are stored.
@@ -40,5 +41,16 @@ public class AppProperties {
         private String headerGroups;
         private String adminGroup;
         private String groupsDelimiter = "\\s+";  // Default to whitespace for backward compatibility
+    }
+
+    /**
+     * Headless Chromium for Amazon/GoodReads pages that bot-check plain HTTP clients. When it
+     * can't start (e.g. the musl-based Docker image) the parsers fall back to plain HTTP anyway;
+     * disabling it just skips the attempt.
+     */
+    @Getter
+    @Setter
+    public static class MetadataBrowser {
+        private boolean enabled = true;
     }
 }

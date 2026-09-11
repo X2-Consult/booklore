@@ -23,6 +23,9 @@ app:
     groups-delimiter: ${REMOTE_AUTH_GROUPS_DELIMITER:\\s+}
   force-disable-oidc: ${FORCE_DISABLE_OIDC:false}
   disk-type: ${DISK_TYPE:LOCAL}
+  metadata-browser:
+    # Load Amazon/GoodReads pages in headless Chromium (installed on first use) instead of plain HTTP.
+    enabled: ${METADATA_BROWSER_ENABLED:true}
 
 server:
   max-http-header-size: 128KB

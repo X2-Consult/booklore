@@ -34,7 +34,7 @@ class GoodReadsParserBookTest {
                 .metadataPublicReviewsSettings(MetadataPublicReviewsSettings.builder().providers(Set.of()).build())
                 .build();
         when(appSettingService.getAppSettings()).thenReturn(settings);
-        parser = new GoodReadsParser(appSettingService, mock(MetadataProviderGuard.class));
+        parser = new GoodReadsParser(appSettingService, mock(MetadataProviderGuard.class), mock(BrowserPageFetcher.class));
     }
 
     private Document docWithApolloState(String apolloStateJson) {

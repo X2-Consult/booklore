@@ -33,9 +33,10 @@ public class MetadataProviderGuard {
             MetadataProvider.Amazon, new Pacing(Duration.ofMillis(1500), Duration.ofMillis(1000)),
             MetadataProvider.GoodReads, new Pacing(Duration.ofMillis(1000), Duration.ofMillis(1000)));
 
-    // GoodReads' WAF gate comes and goes within minutes; Amazon's bot check tends to stick.
+    // GoodReads' WAF gate comes and goes within minutes; Amazon's bot check tends to stick
+    // (30 min is what the Bookshelf backend's Amazon scraper backs off for).
     static final Map<MetadataProvider, Duration> BLOCK_COOLDOWN = Map.of(
-            MetadataProvider.Amazon, Duration.ofMinutes(10),
+            MetadataProvider.Amazon, Duration.ofMinutes(30),
             MetadataProvider.GoodReads, Duration.ofMinutes(3));
 
     private static final Duration DEFAULT_BLOCK_COOLDOWN = Duration.ofMinutes(5);
