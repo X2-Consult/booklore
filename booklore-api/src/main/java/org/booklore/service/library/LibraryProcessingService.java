@@ -31,10 +31,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.booklore.model.enums.PermissionType.ADMIN;
+import static org.booklore.model.enums.PermissionType.MANAGE_LIBRARY;
+
 @AllArgsConstructor
 @Service
 @Slf4j
 public class LibraryProcessingService {
+
+    private static final int MAX_FAILED_FILES_NAMED = 3;
 
     private final LibraryRepository libraryRepository;
     private final NotificationService notificationService;
@@ -57,9 +62,9 @@ public class LibraryProcessingService {
 
             // Use BookGroupingService for consistent grouping based on organization mode
             Map<String, List<LibraryFile>> groups = bookGroupingService.groupForInitialScan(newFiles, libraryEntity);
-            fileAsBookProcessor.processLibraryFilesGrouped(groups, libraryEntity);
+            List<String> failedFiles = fileAsBookProcessor.processLibraryFilesGrouped(groups, libraryEntity);
 
-            notificationService.sendMessage(Topic.LOG, LogNotification.info("Finished processing library: " + libraryEntity.getName()));
+            sendFinished("Finished processing library: " + libraryEntity.getName(), failedFiles);
         } catch (IOException e) {
             log.error("Failed to process library {}: {}", libraryEntity.getName(), e.getMessage(), e);
             notificationService.sendMessage(Topic.LOG, LogNotification.error("Failed to process library: " + libraryEntity.getName() + " - " + e.getMessage()));
@@ -118,13 +123,43 @@ public class LibraryProcessingService {
         }
 
         // Process new book groups
-        fileAsBookProcessor.processLibraryFilesGrouped(groupingResult.newBookGroups(), libraryEntity);
+        List<String> failedFiles = fileAsBookProcessor.processLibraryFilesGrouped(groupingResult.newBookGroups(), libraryEntity);
 
-        notificationService.sendMessage(Topic.LOG, LogNotification.info("Finished refreshing library: " + libraryEntity.getName()));
+        sendFinished("Finished refreshing library: " + libraryEntity.getName(), failedFiles);
     }
 
-    public void processLibraryFiles(List<LibraryFile> libraryFiles, LibraryEntity libraryEntity) {
-        fileAsBookProcessor.processLibraryFiles(libraryFiles, libraryEntity);
+    /**
+     * Entry point for the file watcher. Warns admins about any file that failed to import and
+     * returns the failures, so a caller that would otherwise follow up with a "Finished" message
+     * can skip it rather than overwrite the warning (the UI shows only the latest LOG message).
+     */
+    public List<String> processLibraryFiles(List<LibraryFile> libraryFiles, LibraryEntity libraryEntity) {
+        List<String> failedFiles = fileAsBookProcessor.processLibraryFiles(libraryFiles, libraryEntity);
+        if (!failedFiles.isEmpty()) {
+            notificationService.sendMessageToPermissions(Topic.LOG,
+                    LogNotification.warn(describeImportFailures(failedFiles)), Set.of(ADMIN, MANAGE_LIBRARY));
+        }
+        return failedFiles;
+    }
+
+    // With failures, the finished message itself carries them: a separate warning could be
+    // overwritten by (or race) the finished message, since the UI keeps only the latest one. It
+    // goes to everyone who can manage libraries, so scheduled scans with no requesting user are
+    // still reported.
+    private void sendFinished(String message, List<String> failedFiles) {
+        if (failedFiles.isEmpty()) {
+            notificationService.sendMessage(Topic.LOG, LogNotification.info(message));
+        } else {
+            notificationService.sendMessageToPermissions(Topic.LOG,
+                    LogNotification.warn(message + " - " + describeImportFailures(failedFiles)), Set.of(ADMIN, MANAGE_LIBRARY));
+        }
+    }
+
+    static String describeImportFailures(List<String> failedFiles) {
+        int count = failedFiles.size();
+        String shown = failedFiles.stream().limit(MAX_FAILED_FILES_NAMED).collect(Collectors.joining(", "));
+        String more = count > MAX_FAILED_FILES_NAMED ? " and " + (count - MAX_FAILED_FILES_NAMED) + " more" : "";
+        return count + (count == 1 ? " file" : " files") + " failed to import (" + shown + more + "); see the server log";
     }
 
     private void validateLibraryPathsAccessible(LibraryEntity libraryEntity) {

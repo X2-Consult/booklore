@@ -4,6 +4,8 @@ import org.booklore.model.entity.*;
 import org.booklore.model.enums.BookFileExtension;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.model.enums.LibraryOrganizationMode;
+import org.booklore.model.websocket.LogNotification;
+import org.booklore.model.websocket.Topic;
 import org.booklore.repository.BookAdditionalFileRepository;
 import org.booklore.repository.BookRepository;
 import org.booklore.repository.LibraryRepository;
@@ -281,6 +283,24 @@ class BookFileTransactionalHandlerTest {
             handler.handleNewBookFile(1L, Path.of("/library/sub/test.epub"));
 
             verify(libraryProcessingService).processLibraryFiles(anyList(), eq(library));
+        }
+
+        @Test
+        void importFailure_doesNotSendFinishedOverTheWarning() {
+            when(bookFilePersistenceService.findBookFileByLibraryPathSubPathAndFileName(anyLong(), anyString(), anyString()))
+                    .thenReturn(Optional.empty());
+            when(pendingDeletionPool.matchByHash(anyString())).thenReturn(Optional.empty());
+            when(bookRepository.findByCurrentHashIncludingRecentlyDeleted(anyString(), any())).thenReturn(Optional.empty());
+            when(bookRepository.findFilelessBooksByLibraryId(1L)).thenReturn(List.of());
+            when(bookRepository.findAllByLibraryPathIdAndFileSubPath(anyLong(), anyString())).thenReturn(List.of());
+            when(libraryProcessingService.processLibraryFiles(anyList(), eq(library))).thenReturn(List.of("test.epub"));
+
+            handler.handleNewBookFile(1L, Path.of("/library/sub/test.epub"));
+
+            // LibraryProcessingService sends the warning; the UI shows only the latest LOG message.
+            verify(notificationService, never()).sendMessageToPermissions(eq(Topic.LOG),
+                    argThat((Object n) -> n instanceof LogNotification log && log.getMessage().startsWith("Finished processing file")),
+                    any());
         }
 
         @Test

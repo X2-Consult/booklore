@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -172,8 +173,9 @@ class FileAsBookProcessorTest {
                 .bookFileType(null)
                 .build();
 
-        fileAsBookProcessor.processLibraryFiles(List.of(invalidFile), libraryEntity);
+        List<String> failed = fileAsBookProcessor.processLibraryFiles(List.of(invalidFile), libraryEntity);
 
+        assertThat(failed).as("an unsupported type is a deliberate skip, not a failure").isEmpty();
         verify(bookEventBroadcaster, never()).broadcastBookAddEvent(any());
         verify(processorRegistry, never()).getProcessorOrThrow(any());
     }
@@ -196,9 +198,43 @@ class FileAsBookProcessorTest {
         when(processorRegistry.getProcessorOrThrow(BookFileType.EPUB)).thenReturn(bookFileProcessor);
         when(bookFileProcessor.processFile(file)).thenReturn(null);
 
-        fileAsBookProcessor.processLibraryFiles(List.of(file), libraryEntity);
+        List<String> failed = fileAsBookProcessor.processLibraryFiles(List.of(file), libraryEntity);
 
+        assertThat(failed).containsExactly("book.epub");
         verify(bookEventBroadcaster, never()).broadcastBookAddEvent(any());
+    }
+
+    @Test
+    void processLibraryFiles_reportsFileWhenProcessorThrows_andContinuesWithTheRest() {
+        LibraryEntity libraryEntity = new LibraryEntity();
+        LibraryPathEntity libraryPathEntity = new LibraryPathEntity();
+        libraryPathEntity.setId(1L);
+        libraryPathEntity.setPath("/library/path");
+
+        LibraryFile broken = LibraryFile.builder()
+                .libraryEntity(libraryEntity)
+                .libraryPathEntity(libraryPathEntity)
+                .fileName("broken.epub")
+                .fileSubPath("a")
+                .bookFileType(BookFileType.EPUB)
+                .build();
+        LibraryFile good = LibraryFile.builder()
+                .libraryEntity(libraryEntity)
+                .libraryPathEntity(libraryPathEntity)
+                .fileName("good.epub")
+                .fileSubPath("b")
+                .bookFileType(BookFileType.EPUB)
+                .build();
+        Book goodBook = Book.builder().id(2L).primaryFile(BookFile.builder().fileName("good.epub").bookType(BookFileType.EPUB).build()).build();
+
+        when(processorRegistry.getProcessorOrThrow(BookFileType.EPUB)).thenReturn(bookFileProcessor);
+        when(bookFileProcessor.processFile(broken)).thenThrow(new RuntimeException("corrupt zip"));
+        when(bookFileProcessor.processFile(good)).thenReturn(new FileProcessResult(goodBook, FileProcessStatus.NEW));
+
+        List<String> failed = fileAsBookProcessor.processLibraryFiles(List.of(broken, good), libraryEntity);
+
+        assertThat(failed).containsExactly("broken.epub");
+        verify(bookEventBroadcaster).broadcastBookAddEvent(goodBook);
     }
 
     @Test

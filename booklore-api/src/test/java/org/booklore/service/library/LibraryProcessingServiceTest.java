@@ -6,6 +6,9 @@ import org.booklore.model.entity.BookEntity;
 import org.booklore.model.entity.BookFileEntity;
 import org.booklore.model.entity.LibraryEntity;
 import org.booklore.model.entity.LibraryPathEntity;
+import org.booklore.model.websocket.LogNotification;
+import org.booklore.model.websocket.Severity;
+import org.booklore.model.websocket.Topic;
 import org.booklore.repository.BookAdditionalFileRepository;
 import org.booklore.repository.LibraryRepository;
 import org.booklore.service.NotificationService;
@@ -26,6 +29,9 @@ import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.booklore.model.enums.PermissionType.ADMIN;
+import static org.booklore.model.enums.PermissionType.MANAGE_LIBRARY;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -567,5 +573,69 @@ class LibraryProcessingServiceTest {
         verify(libraryRepository, times(2)).findById(libraryId);
 
         verify(bookGroupingService).groupForRescan(eq(Collections.emptyList()), any(LibraryEntity.class));
+    }
+
+    @Test
+    void processLibrary_withImportFailures_warnsLibraryManagersInsteadOfPlainFinished() {
+        LibraryEntity libraryEntity = new LibraryEntity();
+        libraryEntity.setId(1L);
+        libraryEntity.setName("Comics");
+        libraryEntity.setBookEntities(new ArrayList<>());
+        when(libraryRepository.findById(1L)).thenReturn(Optional.of(libraryEntity));
+        when(fileAsBookProcessor.processLibraryFilesGrouped(any(), eq(libraryEntity))).thenReturn(List.of("broken.cbz"));
+
+        libraryProcessingService.processLibrary(1L);
+
+        verify(notificationService).sendMessageToPermissions(eq(Topic.LOG),
+                argThat((LogNotification n) -> n.getSeverity() == Severity.WARN
+                        && n.getMessage().equals("Finished processing library: Comics - 1 file failed to import (broken.cbz); see the server log")),
+                eq(Set.of(ADMIN, MANAGE_LIBRARY)));
+        verify(notificationService, never()).sendMessage(eq(Topic.LOG),
+                argThat((LogNotification n) -> n != null && n.getMessage().startsWith("Finished")));
+    }
+
+    @Test
+    void processLibrary_withoutImportFailures_sendsPlainFinished() {
+        LibraryEntity libraryEntity = new LibraryEntity();
+        libraryEntity.setId(1L);
+        libraryEntity.setName("Comics");
+        libraryEntity.setBookEntities(new ArrayList<>());
+        when(libraryRepository.findById(1L)).thenReturn(Optional.of(libraryEntity));
+
+        libraryProcessingService.processLibrary(1L);
+
+        verify(notificationService).sendMessage(eq(Topic.LOG),
+                argThat((LogNotification n) -> n != null && n.getSeverity() == Severity.INFO
+                        && n.getMessage().equals("Finished processing library: Comics")));
+        verify(notificationService, never()).sendMessageToPermissions(any(), any(), any());
+    }
+
+    @Test
+    void processLibraryFiles_withFailures_warnsLibraryManagersAndReturnsThem() {
+        LibraryEntity libraryEntity = new LibraryEntity();
+        when(fileAsBookProcessor.processLibraryFiles(anyList(), eq(libraryEntity))).thenReturn(List.of("broken.epub"));
+
+        List<String> failed = libraryProcessingService.processLibraryFiles(List.of(), libraryEntity);
+
+        assertThat(failed).containsExactly("broken.epub");
+        verify(notificationService).sendMessageToPermissions(eq(Topic.LOG),
+                argThat((LogNotification n) -> n.getSeverity() == Severity.WARN && n.getMessage().contains("broken.epub")),
+                eq(Set.of(ADMIN, MANAGE_LIBRARY)));
+    }
+
+    @Test
+    void processLibraryFiles_withoutFailures_sendsNothing() {
+        LibraryEntity libraryEntity = new LibraryEntity();
+
+        assertThat(libraryProcessingService.processLibraryFiles(List.of(), libraryEntity)).isEmpty();
+        verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void describeImportFailures_namesTheFirstThreeAndCountsTheRest() {
+        assertThat(LibraryProcessingService.describeImportFailures(List.of("a.epub", "b.pdf", "c.cbz", "d.cbz", "e.cbz")))
+                .isEqualTo("5 files failed to import (a.epub, b.pdf, c.cbz and 2 more); see the server log");
+        assertThat(LibraryProcessingService.describeImportFailures(List.of("a.epub", "b.pdf")))
+                .isEqualTo("2 files failed to import (a.epub, b.pdf); see the server log");
     }
 }

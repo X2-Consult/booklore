@@ -31,10 +31,12 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Component
@@ -51,20 +53,27 @@ public class FileAsBookProcessor {
     private final MetadataExtractorFactory metadataExtractorFactory;
     private final AudiobookMetadataExtractor audiobookMetadataExtractor;
 
+    /**
+     * @return names of files that failed to import (processor error or no book produced), so the
+     * caller can tell admins. Deliberate skips such as unsupported types are not failures.
+     */
     @Transactional
-    public void processLibraryFiles(List<LibraryFile> libraryFiles, LibraryEntity libraryEntity) {
+    public List<String> processLibraryFiles(List<LibraryFile> libraryFiles, LibraryEntity libraryEntity) {
         Map<String, List<LibraryFile>> groups = BookFileGroupingUtils.groupByBaseName(libraryFiles);
-        processLibraryFilesGrouped(groups, libraryEntity);
+        return processLibraryFilesGrouped(groups, libraryEntity);
     }
 
+    /** @return names of files that failed to import; see {@link #processLibraryFiles}. */
     @Transactional
-    public void processLibraryFilesGrouped(Map<String, List<LibraryFile>> groups, LibraryEntity libraryEntity) {
+    public List<String> processLibraryFilesGrouped(Map<String, List<LibraryFile>> groups, LibraryEntity libraryEntity) {
         LibraryEntity managedLibrary = ensureManaged(libraryEntity);
+        List<String> failedFiles = new ArrayList<>();
         for (Map.Entry<String, List<LibraryFile>> entry : groups.entrySet()) {
             entry.getValue().forEach(lf -> lf.setLibraryEntity(managedLibrary));
-            processGroupWithErrorHandling(entry.getValue(), managedLibrary);
+            processGroupWithErrorHandling(entry.getValue(), managedLibrary).ifPresent(failedFiles::add);
         }
         log.info("Finished processing library '{}'", managedLibrary.getName());
+        return failedFiles;
     }
 
     private LibraryEntity ensureManaged(LibraryEntity entity) {
@@ -73,20 +82,22 @@ public class FileAsBookProcessor {
                 .orElseThrow(() -> ApiError.LIBRARY_NOT_FOUND.createException(entity.getId()));
     }
 
-    private void processGroupWithErrorHandling(List<LibraryFile> group, LibraryEntity libraryEntity) {
+    /** @return the failed file name(s), empty if the group was imported or deliberately skipped */
+    private Optional<String> processGroupWithErrorHandling(List<LibraryFile> group, LibraryEntity libraryEntity) {
         try {
-            processGroup(group, libraryEntity);
+            return processGroup(group, libraryEntity);
         } catch (Exception e) {
-            String fileNames = group.stream().map(LibraryFile::getFileName).toList().toString();
-            log.error("Failed to process file group {}: {}", fileNames, e.getMessage());
+            String fileNames = group.stream().map(LibraryFile::getFileName).collect(Collectors.joining(", "));
+            log.error("Failed to process file group [{}]: {}", fileNames, e.getMessage());
+            return Optional.of(fileNames);
         }
     }
 
-    private void processGroup(List<LibraryFile> group, LibraryEntity libraryEntity) {
+    private Optional<String> processGroup(List<LibraryFile> group, LibraryEntity libraryEntity) {
         Optional<LibraryFile> primaryFile = findBestPrimaryFile(group, libraryEntity);
         if (primaryFile.isEmpty()) {
             log.warn("No suitable book file found in group");
-            return;
+            return Optional.empty();
         }
 
         LibraryFile primary = primaryFile.get();
@@ -95,7 +106,7 @@ public class FileAsBookProcessor {
         BookFileType type = primary.getBookFileType();
         if (type == null) {
             log.warn("Unsupported file type for file: {}", primary.getFileName());
-            return;
+            return Optional.empty();
         }
 
         BookFileProcessor processor = processorRegistry.getProcessorOrThrow(type);
@@ -103,7 +114,7 @@ public class FileAsBookProcessor {
 
         if (result == null || result.getBook() == null) {
             log.warn("Failed to process primary file: {}", primary.getFileName());
-            return;
+            return Optional.of(primary.getFileName());
         }
 
         bookEventBroadcaster.broadcastBookAddEvent(result.getBook());
@@ -119,6 +130,7 @@ public class FileAsBookProcessor {
                 createAdditionalBookFile(bookEntity, additionalFile);
             }
         }
+        return Optional.empty();
     }
 
     private Optional<LibraryFile> findBestPrimaryFile(List<LibraryFile> group, LibraryEntity libraryEntity) {

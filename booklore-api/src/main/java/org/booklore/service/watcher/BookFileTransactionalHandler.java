@@ -165,7 +165,9 @@ public class BookFileTransactionalHandler {
                             .orElseThrow(() -> new IllegalArgumentException("Unsupported book file type: " + fileName)))
                     .build();
 
-            libraryProcessingService.processLibraryFiles(List.of(libraryFile), libraryEntity);
+            if (!libraryProcessingService.processLibraryFiles(List.of(libraryFile), libraryEntity).isEmpty()) {
+                return; // admins were already warned; a "Finished" message would overwrite it
+            }
             log.info("[CREATE] Completed processing for file '{}'", filePath);
         }
 
@@ -214,7 +216,9 @@ public class BookFileTransactionalHandler {
                     .folderBased(true)
                     .build();
 
-            libraryProcessingService.processLibraryFiles(List.of(libraryFile), libraryEntity);
+            if (!libraryProcessingService.processLibraryFiles(List.of(libraryFile), libraryEntity).isEmpty()) {
+                return; // admins were already warned; a "Finished" message would overwrite it
+            }
             log.info("[CREATE] Completed processing folder audiobook '{}'", folderPath);
         }
 

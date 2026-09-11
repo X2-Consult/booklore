@@ -1,8 +1,9 @@
 # Dead code audit
 
 Findings from the codebase review of 2026-09-03, verified against the tree at `5f1bddb9`.
-Nothing here is a live bug today — these are unreferenced classes, orphaned schema, and one
-latent data-integrity gap. Recorded so they can be closed deliberately rather than
+The findings were unreferenced classes, orphaned schema, and one latent data-integrity gap.
+Tracing items 1-4 before deleting them also turned up two live bugs, now fixed (see "Real bugs
+found while tracing these"). Recorded so they can be closed deliberately rather than
 rediscovered.
 
 Each item lists what it is, why it is dead, and the recommended action. Items 1-4 were
@@ -19,7 +20,7 @@ its only caller deliberately.
 | Class(es) | History | Outcome |
 |---|---|---|
 | `LoginRateLimitService` | Added in `f7650d9f`; the same day `03272f7c` added `AuthRateLimitService`, moved every call site over, and left the old file behind. The replacement is a strict superset (username-keyed limits, refresh-token limits, bounded cache). | Deleted |
-| `AdminEventBroadcaster` | Added in `63dc2bcb` to toast admins when a file failed to import during a folder-as-book scan. The multi-format rewrite `3f334202` deleted that processor and both call sites — and the behaviour went with them. | Deleted |
+| `AdminEventBroadcaster` | Added in `63dc2bcb` to toast admins when a file failed to import during a folder-as-book scan. The multi-format rewrite `3f334202` deleted that processor and both call sites — and the behaviour went with them. | Deleted; behaviour restored (below) |
 | `BookMetadataAuthorMapping`, `BookMetadataCategoryMapping`, `BookShelfMapping` + their repositories and `*Key` id classes | A batch-fetch optimisation (`7a4a401e`, June 2025) replaced six days later by `@EntityGraph` (`32b35d4a`). When author ordering added `sort_order` to `book_metadata_author_mapping` (`9c249fff`), the stale entity was not updated — its `(book_id, author_id)` id no longer matched the table's `(book_id, sort_order)` primary key, so reviving it would have been actively wrong. | Deleted; tables untouched (live via the `@ManyToMany` `@JoinTable` mappings) |
 | `ComicCreatorMappingRepository` | Created with the comic-metadata feature (`c1c72ea7`); its sibling repositories are all used, this one never was. | Deleted — but its unused `deleteByComicMetadataBookId` pointed at a real bug (below) |
 | `UserSettingRepository` | Its only caller ever was `TelemetryService` (counting Hardcover-sync users for the install ping); upstream removed telemetry deliberately in `23559d8b` and missed this file. | Deleted |
@@ -53,6 +54,15 @@ SELECT count(*) FROM (
 Any later metadata edit to an affected book rewrites its creator rows cleanly, but a save with
 no changes is skipped by the detector and leaves the duplicates in place. Stale rows with a
 *different* name cannot be told apart from legitimate ones without history.
+
+**Failed imports were invisible to admins.** Since `3f334202`, a file that threw or produced no
+book during a scan only reached the server log; the UI still said "Finished processing library".
+`FileAsBookProcessor` now returns the failed file names and `LibraryProcessingService` reports
+them as a WARN to users with `ADMIN` or `MANAGE_LIBRARY` (so scheduled scans with no requesting
+user are covered too). Because the UI's live-notification box shows only the latest `LOG`
+message, the failure summary *replaces* the "Finished…" message rather than following it — a
+separate message would be overwritten a few milliseconds later. Deliberate skips (unsupported
+type, no book file in a group) are not reported, matching the original behaviour.
 
 ---
 
