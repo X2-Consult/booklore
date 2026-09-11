@@ -13,6 +13,7 @@ import {TaskService} from './features/settings/task-management/task.service';
 import {LibraryService} from './features/book/service/library.service';
 import {LibraryHealthService} from './features/book/service/library-health.service';
 import {LibraryLoadingService} from './features/library-creator/library-loading.service';
+import {PwaUpdateService} from './shared/service/pwa-update.service';
 import {TranslocoTestingModule} from '@jsverse/transloco';
 
 describe('AppComponent offline detection', () => {
@@ -37,6 +38,7 @@ describe('AppComponent offline detection', () => {
         {provide: LibraryService, useValue: {largeLibraryLoading$: of({isLoading: false, expectedCount: 0})}},
         {provide: LibraryHealthService, useValue: {initialize: vi.fn()}},
         {provide: LibraryLoadingService, useValue: {hide: vi.fn()}},
+        {provide: PwaUpdateService, useValue: {}},
       ]
     });
 
