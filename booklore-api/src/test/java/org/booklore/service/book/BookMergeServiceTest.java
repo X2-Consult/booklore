@@ -48,7 +48,7 @@ class BookMergeServiceTest {
 
         // per-user tables that must be collision-guarded
         for (String table : List.of("user_book_progress", "pdf_annotations", "ebook_viewer_preference",
-                "cbx_viewer_preference", "epub_viewer_preference", "new_pdf_viewer_preference",
+                "cbx_viewer_preference", "new_pdf_viewer_preference",
                 "pdf_viewer_preference", "book_marks", "book_notes_v2", "annotations")) {
             assertThat(statements).anyMatch(s ->
                     s.startsWith("UPDATE " + table + " SET book_id") && s.contains("NOT EXISTS"));

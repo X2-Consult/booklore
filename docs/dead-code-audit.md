@@ -6,8 +6,8 @@ Tracing items 1-4 before deleting them also turned up two live bugs, now fixed (
 found while tracing these"). Recorded so they can be closed deliberately rather than
 rediscovered.
 
-Each item lists what it is, why it is dead, and the recommended action. Items 1-4 were
-resolved on 2026-09-11; **items 5-7 are still open.**
+Each item lists what it is, why it is dead, and what was done. **All seven were resolved on
+2026-09-11.**
 
 ---
 
@@ -51,6 +51,8 @@ SELECT count(*) FROM (
   GROUP BY book_id, creator_id, role HAVING count(*) > 1) d;
 ```
 
+Prod had 0 duplicate groups when checked on 2026-09-11, so no cleanup was needed there.
+
 Any later metadata edit to an affected book rewrites its creator rows cleanly, but a save with
 no changes is skipped by the detector and leaves the duplicates in place. Stale rows with a
 *different* name cannot be told apart from legitimate ones without history.
@@ -66,101 +68,27 @@ type, no book file in a group) are not reported, matching the original behaviour
 
 ---
 
-## 5. `epub_viewer_preference` — orphaned feature slice, needs a decision
+## 5-7. Dead schema and missing FKs — resolved 2026-09-11 in `V8`
 
-Three Java files and one table, all unreferenced:
+Checked against prod (bookshelfserver) first: `epub_viewer_preference` and `book_award` had 0
+rows, and there were 0 orphaned rows in the viewer-preference tables. `V8__Drop_dead_tables_and_add_viewer_preference_fks.sql`:
 
-- `model/entity/EpubViewerPreferencesEntity.java`
-- `repository/EpubViewerPreferencesRepository.java`
-- `mapper/EpubViewerPreferencesMapper.java`
-- table `epub_viewer_preference` (`V1__baseline_schema.sql:494`)
-
-EPUB reader preferences **are** saved today — via `EbookViewerPreferenceEntity` /
-`ebook_viewer_preference`, written by `BookUpdateService:139-157`. Of the five viewer-preference
-entities, this is the only one `BookUpdateService` does not touch:
-
-| Entity | Wired into `BookUpdateService` |
-|---|---|
-| `EbookViewerPreferenceEntity` | yes |
-| `PdfViewerPreferencesEntity` | yes |
-| `NewPdfViewerPreferencesEntity` | yes |
-| `CbxViewerPreferencesEntity` | yes |
-| `EpubViewerPreferencesEntity` | **no** |
-
-So this is the pre-`ebook_viewer_preference` generation, left behind when the newer generic
-table superseded it. Note the old table's columns are not a subset of the new one's — it has
-`letter_spacing`, `spread` and `custom_font_id`, which `ebook_viewer_preference` does not.
-
-**The open question is whether user data was stranded in the old table at that transition.**
-On the dev box (`ai-webserver`) all five tables are empty, which proves nothing — that box has
-almost no reading history. Run this on **prod (`bookshelfserver`)** before deleting anything:
-
-```sql
-SELECT count(*) FROM epub_viewer_preference;
-```
-
-**Action:**
-- If prod returns 0 — delete the three Java files and drop the table in a Flyway migration.
-- If prod returns > 0 — those are real reader settings that silently stopped being honoured.
-  Decide whether to migrate them into `ebook_viewer_preference` (dropping the three columns
-  that have no home) or accept the loss, then delete.
-
----
-
-## 6. Missing FKs on four viewer-preference tables — real latent bug, worth fixing
-
-Of the five viewer-preference tables, only `ebook_viewer_preference` has referential integrity
-(`V1__baseline_schema.sql:1097-1098`):
-
-```sql
-ALTER TABLE "ebook_viewer_preference" ADD CONSTRAINT "fk_ebook_viewer_preference_book"
-  FOREIGN KEY ("book_id") REFERENCES "book" ("id") ON DELETE CASCADE;
-ALTER TABLE "ebook_viewer_preference" ADD CONSTRAINT "fk_ebook_viewer_preference_user"
-  FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
-```
-
-`cbx_viewer_preference`, `pdf_viewer_preference`, `new_pdf_viewer_preference` and
-`epub_viewer_preference` have **no FK to `book` or `users` at all**. (`epub_viewer_preference`
-has only `epub_viewer_preference_ibfk_1` → `custom_font`.)
-
-Consequence: deleting a book or a user leaves those rows behind permanently. Every other
-`book_id` child table is `ON DELETE CASCADE`; these four are the exception, so the cleanup that
-happens everywhere else silently skips them. It is slow junk accumulation rather than
-corruption — ids are serial and never reused, so stale rows cannot resurface against a
-different book — but it grows without bound and nothing will ever collect it.
-
-Note this is **not** the same as the merge path: `BookMergeService` re-points all four tables
-explicitly, so duplicate-collapse already handles them correctly. It is ordinary deletion that
-leaks.
-
-**Action:** a `V8` migration that deletes existing orphans, then adds the eight missing FKs.
-Count them first on prod:
-
-```sql
-SELECT 'cbx',    count(*) FROM cbx_viewer_preference p       LEFT JOIN book b ON b.id = p.book_id WHERE b.id IS NULL
-UNION ALL SELECT 'pdf',    count(*) FROM pdf_viewer_preference p       LEFT JOIN book b ON b.id = p.book_id WHERE b.id IS NULL
-UNION ALL SELECT 'newpdf', count(*) FROM new_pdf_viewer_preference p   LEFT JOIN book b ON b.id = p.book_id WHERE b.id IS NULL
-UNION ALL SELECT 'epub',   count(*) FROM epub_viewer_preference p      LEFT JOIN book b ON b.id = p.book_id WHERE b.id IS NULL;
-```
-
-(If item 5 resolves to "drop the table", `epub_viewer_preference` falls out of this one.)
-
----
-
-## 7. `book_award` — scaffolded, never built
-
-`V1__baseline_schema.sql:84` creates the table, `:954` adds a unique index on
-`(book_id, name, category, awarded_at)`, `:1068` adds the FK to `book`. There is no entity, no
-repository, no service, no endpoint, and no frontend reference — in either the Postgres schema
-or the archived MariaDB one, so it has been empty since the beginning.
-
-This is a designed-but-unimplemented feature rather than an accident: the table has a
-deliberate composite key and cascade. Awards are available from both Goodreads and Hardcover,
-which are already wired as metadata providers, so it is buildable.
-
-**Action:** decide. Either build it (a metadata-provider field → table → book detail panel), or
-drop the table in a Flyway migration and reclaim the idea later. Leaving an empty table with
-constraints in the baseline schema is the worst of the three.
+- **5. `epub_viewer_preference` — dropped**, along with `EpubViewerPreferencesEntity`,
+  `EpubViewerPreferencesRepository`, `EpubViewerPreferencesMapper`, the `EpubViewerPreferences`
+  DTO, and its entry in `BookMergeService`'s table list (a native `UPDATE` there would otherwise
+  have failed every merge once the table was gone). It stopped being written when upstream's new
+  eBook reader (`8c35f241`, Jan 2026) switched to `ebook_viewer_preference`; that commit created
+  the new table but never carried the old rows over. Prod had none to lose.
+- **6. Missing FKs — added.** `cbx_`, `pdf_` and `new_pdf_viewer_preference` now have
+  `ON DELETE CASCADE` FKs to `book` and `users` plus a `book_id` index, matching
+  `ebook_viewer_preference`. The migration deletes orphans first, which was a no-op on prod but
+  keeps it safe on other installs.
+- **7. `book_award` — dropped.** The original write-up here ("scaffolded, never built") was
+  wrong. It was a working feature from `775f341c` (Jan 2025) to `7a4a401e` (Jun 2025): the
+  GoodReads parser read `awardsWon`, `BookMetadataUpdater` stored them, and the UI had an
+  award-winner filter. Upstream removed all of it in a load-time optimisation and left the table.
+  If awards are wanted again, design a fresh table (this one's `awarded_at NOT NULL` fits GoodReads
+  data poorly) and load it on the book detail page only.
 
 ---
 

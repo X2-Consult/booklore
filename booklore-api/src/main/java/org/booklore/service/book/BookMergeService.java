@@ -33,7 +33,6 @@ public class BookMergeService {
             new UserScopedTable("pdf_annotations", null),             // unique (user_id, book_id)
             new UserScopedTable("ebook_viewer_preference", null),     // unique (user_id, book_id)
             new UserScopedTable("cbx_viewer_preference", null),       // unique (user_id, book_id)
-            new UserScopedTable("epub_viewer_preference", null),      // unique (user_id, book_id)
             new UserScopedTable("new_pdf_viewer_preference", null),   // unique (user_id, book_id)
             new UserScopedTable("pdf_viewer_preference", null),       // unique (user_id, book_id)
             new UserScopedTable("book_marks", "cfi"),                 // unique (user_id, book_id, cfi)
