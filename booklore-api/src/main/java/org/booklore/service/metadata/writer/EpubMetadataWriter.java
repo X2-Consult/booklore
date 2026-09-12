@@ -12,6 +12,7 @@ import org.booklore.model.entity.BookEntity;
 import org.booklore.model.entity.BookMetadataEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.service.appsettings.AppSettingService;
+import org.booklore.util.FileService;
 import org.booklore.util.SecureXmlUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,7 +36,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -52,6 +52,7 @@ public class EpubMetadataWriter implements MetadataWriter {
 
     private static final String OPF_NS = "http://www.idpf.org/2007/opf";
     private final AppSettingService appSettingService;
+    private final FileService fileService;
 
     @Override
     public void saveMetadataToFile(File epubFile, BookMetadataEntity metadata, String thumbnailUrl, MetadataClearFlags clear) {
@@ -513,7 +514,17 @@ public class EpubMetadataWriter implements MetadataWriter {
     }
 
     private byte[] loadImage(String pathOrUrl) {
-        try (InputStream stream = pathOrUrl.startsWith("http") ? URI.create(pathOrUrl).toURL().openStream() : new FileInputStream(pathOrUrl)) {
+        // URLs come from book metadata, so they go through the SSRF-filtered download; a plain
+        // openStream() would follow redirects into the local network.
+        if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+            try {
+                return fileService.downloadImageBytes(pathOrUrl);
+            } catch (IOException e) {
+                log.warn("Failed to load image from {}: {}", pathOrUrl, e.getMessage());
+                return null;
+            }
+        }
+        try (InputStream stream = new FileInputStream(pathOrUrl)) {
             return stream.readAllBytes();
         } catch (IOException e) {
             log.warn("Failed to load image from {}: {}", pathOrUrl, e.getMessage());

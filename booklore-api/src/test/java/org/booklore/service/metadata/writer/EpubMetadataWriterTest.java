@@ -9,6 +9,7 @@ import org.booklore.model.entity.BookFileEntity;
 import org.booklore.model.entity.BookMetadataEntity;
 import org.booklore.model.entity.LibraryPathEntity;
 import org.booklore.service.appsettings.AppSettingService;
+import org.booklore.util.FileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class EpubMetadataWriterTest {
@@ -45,6 +47,7 @@ class EpubMetadataWriterTest {
     private BookMetadataEntity metadata;
     private BookEntity bookEntity;
     private AppSettingService appSettingService;
+    private FileService fileService;
 
     @TempDir
     Path tempDir;
@@ -52,6 +55,7 @@ class EpubMetadataWriterTest {
     @BeforeEach
     void setUp() {
         appSettingService = mock(AppSettingService.class);
+        fileService = mock(FileService.class);
         MetadataPersistenceSettings.FormatSettings epubFormatSettings = MetadataPersistenceSettings.FormatSettings.builder()
                 .enabled(true)
                 .maxFileSizeInMb(100)
@@ -66,7 +70,7 @@ class EpubMetadataWriterTest {
         when(appSettings.getMetadataPersistenceSettings()).thenReturn(metadataPersistenceSettings);
         when(appSettingService.getAppSettings()).thenReturn(appSettings);
 
-        writer = new EpubMetadataWriter(appSettingService);
+        writer = new EpubMetadataWriter(appSettingService, fileService);
         metadata = new BookMetadataEntity();
         metadata.setTitle("Test Book");
         AuthorEntity author = new AuthorEntity();
@@ -151,6 +155,20 @@ class EpubMetadataWriterTest {
             );
 
             assertDoesNotThrow(() -> writer.replaceCoverImageFromUpload(bookEntity, coverFile));
+        }
+
+        @Test
+        @DisplayName("Cover URLs are fetched through the SSRF-filtered download, not opened directly")
+        void writeMetadataToFile_withCoverUrl_downloadsThroughFileService() throws IOException {
+            byte[] epubContent = createEpubWithUnicodeCoverHref();
+            File epubFile = tempDir.resolve("test_cover_url.epub").toFile();
+            Files.write(epubFile.toPath(), epubContent);
+            String coverUrl = "https://covers.example.com/cover.png";
+            when(fileService.downloadImageBytes(coverUrl)).thenReturn(createMinimalPngImage());
+
+            writer.saveMetadataToFile(epubFile, metadata, coverUrl, new MetadataClearFlags());
+
+            verify(fileService).downloadImageBytes(coverUrl);
         }
     }
 

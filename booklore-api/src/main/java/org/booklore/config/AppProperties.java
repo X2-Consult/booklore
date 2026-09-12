@@ -5,6 +5,8 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 @ConfigurationProperties(prefix = "app")
 @Getter
@@ -17,6 +19,7 @@ public class AppProperties {
     private RemoteAuth remoteAuth;
     private Boolean forceDisableOidc = false;
     private MetadataBrowser metadataBrowser = new MetadataBrowser();
+    private OutboundRequests outbound = new OutboundRequests();
 
     /**
      * Type of disk storage where library files are stored.
@@ -48,6 +51,19 @@ public class AppProperties {
      * can't start (e.g. the musl-based Docker image) the parsers fall back to plain HTTP anyway;
      * disabling it just skips the attempt.
      */
+    /**
+     * Requests to URLs a user supplies (cover and author-photo downloads). Every connection, redirects
+     * included, is refused if the destination resolves into one of the restricted ranges, so such a URL
+     * can't be pointed at this server or the local network.
+     */
+    @Getter
+    @Setter
+    public static class OutboundRequests {
+        private int connectTimeout = 15;
+        private int readTimeout = 15;
+        private List<String> restrictedRanges = List.of();
+    }
+
     @Getter
     @Setter
     public static class MetadataBrowser {

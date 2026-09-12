@@ -23,6 +23,39 @@ app:
     groups-delimiter: ${REMOTE_AUTH_GROUPS_DELIMITER:\\s+}
   force-disable-oidc: ${FORCE_DISABLE_OIDC:false}
   disk-type: ${DISK_TYPE:LOCAL}
+  # Cover and author-photo downloads from user-supplied URLs refuse to connect into these ranges
+  # (checked on every hop, redirects included), so such a URL can't reach this server or the LAN.
+  # Other outbound calls (metadata providers, OIDC, Kobo) are not filtered. List from Grimmory.
+  outbound:
+    connect-timeout: 15
+    read-timeout: 15
+    restricted-ranges:
+      - "0.0.0.0/8"          # "This host on this network" - RFC 6890
+      - "10.0.0.0/8"         # Private use - RFC 1918
+      - "100::/64"           # IPv6 discard prefix - RFC 6666
+      - "100.64.0.0/10"      # Shared address space (CGNAT) - RFC 6890
+      - "::1/128"            # IPv6 loopback - RFC 4291
+      - "127.0.0.0/8"        # Loopback - RFC 6890
+      - "::/128"             # IPv6 unspecified - RFC 4291
+      - "169.254.0.0/16"     # Link local, incl. cloud metadata endpoints - RFC 6890
+      - "172.16.0.0/12"      # Private use - RFC 6890
+      - "192.0.0.0/24"       # IETF protocol assignments - RFC 6890
+      - "192.0.2.0/24"       # TEST-NET-1 - RFC 5737
+      - "192.168.0.0/16"     # Private use - RFC 6890
+      - "192.88.99.0/24"     # 6to4 relay anycast - RFC 3068
+      - "198.18.0.0/15"      # Benchmark testing - RFC 2544
+      - "198.51.100.0/24"    # TEST-NET-2 - RFC 5737
+      - "2001:10::/28"       # IPv6 ORCHID - RFC 7343
+      - "2001::/23"          # IPv6 IETF protocol assignments - RFC 2928
+      - "2001:db8::/32"      # IPv6 documentation - RFC 3849
+      - "2002::/16"          # 6to4 - RFC 3056
+      - "203.0.113.0/24"     # TEST-NET-3 - RFC 5737
+      - "240.0.0.0/4"        # Reserved - RFC 6890
+      - "255.255.255.255/32" # Limited broadcast - RFC 919
+      - "64:ff9b:1::/48"     # Local-use IPv4/IPv6 translation - RFC 8215
+      - "64:ff9b::/96"       # IPv4/IPv6 translators - RFC 6052
+      - "fc00::/7"           # IPv6 unique local - RFC 4193
+      - "fe80::/10"          # IPv6 link local - RFC 4291
   metadata-browser:
     # Load Amazon/GoodReads pages in headless Chromium (installed on first use) instead of plain HTTP.
     enabled: ${METADATA_BROWSER_ENABLED:true}

@@ -40,6 +40,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    // InetAddressFilter: connection-time IP filtering for requests to user-supplied URLs
+    implementation 'org.springframework.boot:spring-boot-http-client'
 
     // --- Reactive Streams ---
     implementation 'io.projectreactor:reactor-core'

@@ -25,10 +25,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 
-import java.net.http.HttpClient;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -284,14 +281,6 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         return http.build();
-    }
-
-    @Bean("noRedirectRestTemplate")
-    public RestTemplate noRedirectRestTemplate() {
-        HttpClient httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
-        return new RestTemplate(new JdkClientHttpRequestFactory(httpClient));
     }
 
     @Bean

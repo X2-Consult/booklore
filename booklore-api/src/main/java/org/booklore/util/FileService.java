@@ -26,7 +26,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -252,8 +251,17 @@ public class FileService {
     }
 
     public BufferedImage downloadImageFromUrl(String imageUrl) throws IOException {
+        return readImage(downloadImageBytes(imageUrl));
+    }
+
+    /**
+     * Downloads a user-supplied image URL through the address-filtered client (see RestClientConfig).
+     * Anything that fetches a URL from book metadata should come through here rather than opening
+     * the URL itself, or it bypasses the SSRF protection.
+     */
+    public byte[] downloadImageBytes(String imageUrl) throws IOException {
         try {
-            return downloadImageFromUrlInternal(imageUrl);
+            return downloadImageBytesInternal(imageUrl);
         } catch (Exception e) {
             log.warn("Failed to download image from {}: {}", imageUrl, e.getMessage());
             if (e instanceof IOException ioException) {
@@ -263,7 +271,7 @@ public class FileService {
         }
     }
 
-    private BufferedImage downloadImageFromUrlInternal(String imageUrl) throws IOException {
+    private byte[] downloadImageBytesInternal(String imageUrl) throws IOException {
         String currentUrl = imageUrl;
         int redirectCount = 0;
 
@@ -278,16 +286,9 @@ public class FileService {
                 throw new IOException("Invalid URL: no host found in " + currentUrl);
             }
 
-            // Validate resolved IPs to block SSRF against internal networks
-            InetAddress[] inetAddresses = InetAddress.getAllByName(host);
-            if (inetAddresses.length == 0) {
-                throw new IOException("Could not resolve host: " + host);
-            }
-            for (InetAddress inetAddress : inetAddresses) {
-                if (isInternalAddress(inetAddress)) {
-                    throw new SecurityException("URL points to a local or private internal network address: " + host + " (" + inetAddress.getHostAddress() + ")");
-                }
-            }
+            // No address check here: noRedirectRestTemplate refuses to connect into restricted ranges
+            // (RestClientConfig), which also covers each redirect hop and a DNS answer that changes
+            // between a check and the connection.
 
             HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.USER_AGENT, "BookLore/1.0 (Book and Comic Metadata Fetcher; +https://github.com/X2-Consult/booklore)");
@@ -305,7 +306,7 @@ public class FileService {
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return readImage(response.getBody());
+                return response.getBody();
             } else if (response.getStatusCode().is3xxRedirection()) {
                 String location = response.getHeaders().getFirst(HttpHeaders.LOCATION);
                 if (location == null) {
@@ -361,35 +362,6 @@ public class FileService {
             }
             return true;
         }
-        return false;
-    }
-
-    private boolean isInternalAddress(InetAddress address) {
-        if (address.isLoopbackAddress() || address.isLinkLocalAddress() ||
-            address.isSiteLocalAddress() || address.isAnyLocalAddress()) {
-            return true;
-        }
-
-        byte[] addr = address.getAddress();
-        // Check for IPv6 Unique Local Address (fc00::/7)
-        if (addr.length == 16) {
-            if ((addr[0] & 0xFE) == (byte) 0xFC) {
-                return true;
-            }
-        }
-
-        // Handle IPv4-mapped IPv6 addresses (::ffff:127.0.0.1)
-        if (isIpv4MappedAddress(addr)) {
-            try {
-                byte[] ipv4Bytes = new byte[4];
-                System.arraycopy(addr, 12, ipv4Bytes, 0, 4);
-                InetAddress ipv4Addr = InetAddress.getByAddress(ipv4Bytes);
-                return isInternalAddress(ipv4Addr);
-            } catch (java.net.UnknownHostException e) {
-                return false;
-            }
-        }
-
         return false;
     }
 
