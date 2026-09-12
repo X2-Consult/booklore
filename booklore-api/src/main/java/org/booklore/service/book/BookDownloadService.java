@@ -194,10 +194,13 @@ public class BookDownloadService {
                 // Handle folder-based audiobooks - add all files from the folder
                 if (bookFile.isFolderBased() && Files.isDirectory(filePath)) {
                     String folderPrefix = bookFile.getFileName() + "/";
-                    List<Path> audioFiles = Files.list(filePath)
-                            .filter(Files::isRegularFile)
-                            .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                            .toList();
+                    List<Path> audioFiles;
+                    try (var files = Files.list(filePath)) {
+                        audioFiles = files
+                                .filter(Files::isRegularFile)
+                                .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                                .toList();
+                    }
 
                     for (Path audioFile : audioFiles) {
                         String entryName = folderPrefix + audioFile.getFileName().toString();
