@@ -3,11 +3,14 @@ package org.booklore.service.kobo;
 import org.booklore.model.entity.BookEntity;
 import org.booklore.model.entity.BookLoreUserEntity;
 import org.booklore.model.entity.KoboUserSettingsEntity;
+import org.booklore.model.entity.LibraryEntity;
 import org.booklore.model.entity.ShelfEntity;
+import org.booklore.model.entity.UserPermissionsEntity;
 import org.booklore.model.enums.ShelfType;
 import org.booklore.repository.BookRepository;
 import org.booklore.repository.KoboUserSettingsRepository;
 import org.booklore.repository.ShelfRepository;
+import org.booklore.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,11 +36,15 @@ class KoboAutoShelfServiceTest {
     private BookRepository bookRepository;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private KoboCompatibilityService koboCompatibilityService;
 
     @InjectMocks
     private KoboAutoShelfService koboAutoShelfService;
 
+    private LibraryEntity library;
     private BookEntity testBook;
     private BookLoreUserEntity testUser1;
     private BookLoreUserEntity testUser2;
@@ -47,18 +55,31 @@ class KoboAutoShelfServiceTest {
 
     @BeforeEach
     void setUp() {
+        library = LibraryEntity.builder().id(5L).name("Books").build();
         testBook = BookEntity.builder()
                 .id(1L)
+                .library(library)
                 .shelves(new HashSet<>())
                 .build();
 
         testUser1 = BookLoreUserEntity.builder()
                 .id(100L)
+                .libraries(new ArrayList<>(List.of(library)))
                 .isDefaultPassword(false).build();
 
         testUser2 = BookLoreUserEntity.builder()
                 .id(200L)
+                .libraries(new ArrayList<>(List.of(library)))
                 .isDefaultPassword(false).build();
+
+        lenient().when(userRepository.findAllById(any())).thenAnswer(inv -> {
+            List<BookLoreUserEntity> found = new ArrayList<>();
+            for (Object id : (Iterable<?>) inv.getArgument(0)) {
+                if (Long.valueOf(100L).equals(id)) found.add(testUser1);
+                if (Long.valueOf(200L).equals(id)) found.add(testUser2);
+            }
+            return found;
+        });
 
         koboShelf1 = ShelfEntity.builder()
                 .id(10L)
@@ -249,6 +270,7 @@ class KoboAutoShelfServiceTest {
     void autoAddBookToKoboShelves_withNullShelves_shouldInitializeAndAdd() {
         testBook = BookEntity.builder()
                 .id(1L)
+                .library(library)
                 .shelves(null)
                 .build();
 
@@ -265,5 +287,32 @@ class KoboAutoShelfServiceTest {
         assert testBook.getShelves() != null;
         assert testBook.getShelves().contains(koboShelf1);
         assert testBook.getShelves().size() == 1;
+    }
+
+    @Test
+    void autoAddBookToKoboShelves_skipsUsersWithoutAccessToTheBooksLibrary() {
+        testUser2.getLibraries().clear();
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(testBook));
+        when(koboCompatibilityService.isBookSupportedForKobo(testBook)).thenReturn(true);
+        when(koboUserSettingsRepository.findByAutoAddToShelfTrueAndSyncEnabledTrue()).thenReturn(List.of(settings1, settings2));
+        when(shelfRepository.findByUserIdInAndName(anyList(), eq(ShelfType.KOBO.getName()))).thenReturn(List.of(koboShelf1, koboShelf2));
+
+        koboAutoShelfService.autoAddBookToKoboShelves(1L);
+
+        assertThat(testBook.getShelves()).containsExactly(koboShelf1);
+    }
+
+    @Test
+    void autoAddBookToKoboShelves_includesAdminsWhateverTheirLibraryAssignments() {
+        testUser2.getLibraries().clear();
+        testUser2.setPermissions(UserPermissionsEntity.builder().permissionAdmin(true).build());
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(testBook));
+        when(koboCompatibilityService.isBookSupportedForKobo(testBook)).thenReturn(true);
+        when(koboUserSettingsRepository.findByAutoAddToShelfTrueAndSyncEnabledTrue()).thenReturn(List.of(settings2));
+        when(shelfRepository.findByUserIdInAndName(anyList(), eq(ShelfType.KOBO.getName()))).thenReturn(List.of(koboShelf2));
+
+        koboAutoShelfService.autoAddBookToKoboShelves(1L);
+
+        assertThat(testBook.getShelves()).containsExactly(koboShelf2);
     }
 }
