@@ -86,9 +86,10 @@ public class OpdsBookService {
 
         if (shelfIds != null && !shelfIds.isEmpty()) {
             validateShelfAccess(shelfIds, user.getId(), isAdmin);
+            Set<Long> accessibleLibraryIds = getAccessibleLibraries(userId).stream().map(Library::getId).collect(Collectors.toSet());
             Page<Book> books = query != null && !query.isBlank()
-                    ? searchByMetadataInShelvesPageInternal(BookUtils.normalizeForSearch(query), shelfIds, page, size, userId)
-                    : getBooksByShelfIdsPageInternal(shelfIds, page, size, userId);
+                    ? searchByMetadataInShelvesPageInternal(BookUtils.normalizeForSearch(query), accessibleLibraryIds, shelfIds, page, size, userId)
+                    : getBooksByShelfIdsPageInternal(accessibleLibraryIds, shelfIds, page, size, userId);
             Page<Book> result = applyBookFilters(books, userId);
             readingProgressService.enrichBooksWithProgress(result.getContent(), userId);
             return result;
@@ -412,15 +413,15 @@ public class OpdsBookService {
         return createPageFromEntities(books, idPage, pageable, userId);
     }
 
-    private Page<Book> getBooksByShelfIdsPageInternal(Set<Long> shelfIds, int page, int size, Long userId) {
+    private Page<Book> getBooksByShelfIdsPageInternal(Set<Long> libraryIds, Set<Long> shelfIds, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size);
 
-        Page<Long> idPage = bookOpdsRepository.findBookIdsByShelfIds(shelfIds, pageable);
+        Page<Long> idPage = bookOpdsRepository.findBookIdsByShelfIds(libraryIds, shelfIds, pageable);
         if (idPage.isEmpty()) {
             return new PageImpl<>(List.of(), pageable, 0);
         }
 
-        List<BookEntity> books = bookOpdsRepository.findAllWithMetadataByIdsAndShelfIds(idPage.getContent(), shelfIds);
+        List<BookEntity> books = bookOpdsRepository.findAllWithMetadataByIdsAndShelfIds(idPage.getContent(), libraryIds, shelfIds);
         return createPageFromEntities(books, idPage, pageable, userId);
     }
 
@@ -448,15 +449,15 @@ public class OpdsBookService {
         return createPageFromEntities(books, idPage, pageable, userId);
     }
 
-    private Page<Book> searchByMetadataInShelvesPageInternal(String text, Set<Long> shelfIds, int page, int size, Long userId) {
+    private Page<Book> searchByMetadataInShelvesPageInternal(String text, Set<Long> libraryIds, Set<Long> shelfIds, int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size);
 
-        Page<Long> idPage = bookOpdsRepository.findBookIdsByMetadataSearchAndShelfIds(text, shelfIds, pageable);
+        Page<Long> idPage = bookOpdsRepository.findBookIdsByMetadataSearchAndShelfIds(text, libraryIds, shelfIds, pageable);
         if (idPage.isEmpty()) {
             return new PageImpl<>(List.of(), pageable, 0);
         }
 
-        List<BookEntity> books = bookOpdsRepository.findAllWithFullMetadataByIdsAndShelfIds(idPage.getContent(), shelfIds);
+        List<BookEntity> books = bookOpdsRepository.findAllWithFullMetadataByIdsAndShelfIds(idPage.getContent(), libraryIds, shelfIds);
         return createPageFromEntities(books, idPage, pageable, userId);
     }
 

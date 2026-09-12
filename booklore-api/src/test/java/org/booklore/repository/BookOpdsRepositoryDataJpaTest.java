@@ -235,8 +235,45 @@ public class BookOpdsRepositoryDataJpaTest {
         entityManager.clear();
 
         Page<Long> result = bookOpdsRepository.findBookIdsByShelfIds(
-                Set.of(shelfA.getId(), shelfB.getId()), PageRequest.of(0, 10));
+                Set.of(library.getId()), Set.of(shelfA.getId(), shelfB.getId()), PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(book.getId());
+    }
+
+    @Test
+    void shelfQueries_leaveOutBooksFromLibrariesTheUserCannotSee() {
+        LibraryEntity visible = persistLibrary("Visible Library");
+        LibraryEntity hidden = persistLibrary("Hidden Library");
+        BookEntity visibleBook = persistBook(visible);
+        BookEntity hiddenBook = persistBook(hidden);
+        persistMetadata(visibleBook, "Visible Book", null, null);
+        persistMetadata(hiddenBook, "Hidden Book", null, null);
+
+        BookLoreUserEntity user = BookLoreUserEntity.builder()
+                .username("restricteduser")
+                .passwordHash("hash")
+                .isDefaultPassword(false)
+                .name("Restricted User")
+                .createdAt(LocalDateTime.now())
+                .build();
+        entityManager.persist(user);
+        ShelfEntity shelf = ShelfEntity.builder().user(user).name("Mixed Shelf").build();
+        entityManager.persist(shelf);
+        entityManager.flush();
+
+        visibleBook.setShelves(new java.util.HashSet<>(Set.of(shelf)));
+        hiddenBook.setShelves(new java.util.HashSet<>(Set.of(shelf)));
+        entityManager.merge(visibleBook);
+        entityManager.merge(hiddenBook);
+        entityManager.flush();
+        entityManager.clear();
+
+        Set<Long> accessible = Set.of(visible.getId());
+        Page<Long> ids = bookOpdsRepository.findBookIdsByShelfIds(accessible, Set.of(shelf.getId()), PageRequest.of(0, 10));
+        List<BookEntity> books = bookOpdsRepository.findAllWithMetadataByIdsAndShelfIds(
+                List.of(visibleBook.getId(), hiddenBook.getId()), accessible, Set.of(shelf.getId()));
+
+        assertThat(ids.getContent()).containsExactly(visibleBook.getId());
+        assertThat(books).extracting(BookEntity::getId).containsExactly(visibleBook.getId());
     }
 }
