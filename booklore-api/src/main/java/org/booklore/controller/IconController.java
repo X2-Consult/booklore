@@ -48,7 +48,11 @@ public class IconController {
     @GetMapping("/{svgName}/content")
     public ResponseEntity<String> getSvgIconContent(@Parameter(description = "SVG icon name") @PathVariable String svgName) {
         String svgContent = iconService.getSvgIcon(svgName);
+        // Uploaded SVGs are stored as-is; opened directly, one could run script as this origin.
+        // Lock the document down so it can only render (same headers as Grimmory's f8c45da9).
         return ResponseEntity.ok()
+                .header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'")
+                .header("X-Content-Type-Options", "nosniff")
                 .header("Content-Type", "image/svg+xml")
                 .body(svgContent);
     }
