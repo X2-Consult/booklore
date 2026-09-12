@@ -37,6 +37,8 @@ public class JwtUtils {
 
     // Access and refresh tokens are otherwise signed identically, so the claim is what stops a refresh
     // token (30 days, revocable only in the database) being presented as a bearer token.
+    static final String ISSUER = "booklore";
+
     static final String TOKEN_USE_CLAIM = "token_use";
     static final String TOKEN_USE_ACCESS = "access";
     static final String TOKEN_USE_REFRESH = "refresh";
@@ -52,6 +54,7 @@ public class JwtUtils {
         long expirationTime = isRefreshToken ? refreshTokenExpirationMs : accessTokenExpirationMs;
         Instant now = Instant.now();
         var builder = Jwts.builder()
+                .issuer(ISSUER)
                 .id(UUID.randomUUID().toString())
                 .subject(user.getUsername())
                 .claim("userId", user.getId())
@@ -117,11 +120,18 @@ public class JwtUtils {
     }
 
     public Claims extractClaims(String token) {
-        return Jwts.parser()
+        Claims claims = Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        // Reject a token minted for something else with the same key. Tokens from before the issuer
+        // claim have none and still pass; they're all expired 30 days after this ships.
+        String issuer = claims.getIssuer();
+        if (issuer != null && !ISSUER.equals(issuer)) {
+            throw new JwtException("Unexpected token issuer: " + issuer);
+        }
+        return claims;
     }
 
     public String extractUsername(String token) {

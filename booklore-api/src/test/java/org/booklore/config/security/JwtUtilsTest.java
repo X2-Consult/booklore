@@ -75,6 +75,22 @@ class JwtUtilsTest {
     }
 
     @Test
+    void tokensCarryTheIssuer_andAForeignIssuerIsRejected() {
+        assertThat(jwtUtils.extractClaims(jwtUtils.generateAccessToken(user)).getIssuer()).isEqualTo(JwtUtils.ISSUER);
+
+        Instant now = Instant.now();
+        String foreign = Jwts.builder()
+                .issuer("some-other-app")
+                .subject("reader")
+                .claim(JwtUtils.TOKEN_USE_CLAIM, JwtUtils.TOKEN_USE_ACCESS)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusMillis(60_000)))
+                .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS256)
+                .compact();
+        assertThat(jwtUtils.validateAccessToken(foreign)).isFalse();
+    }
+
+    @Test
     void tamperedTokenIsRejected() {
         String token = jwtUtils.generateAccessToken(user);
         String tampered = token.substring(0, token.length() - 2) + (token.endsWith("AA") ? "BB" : "AA");
