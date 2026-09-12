@@ -85,6 +85,47 @@ class GoodReadsParserBookTest {
         assertThat(result.getAsin()).isEqualTo("B00XXXXXXX");
     }
 
+    @Test
+    void seriesNameComesFromTheBooksOwnPrimarySeries_notTheFirstSeriesNodeOnThePage() {
+        // Shape of The Way of Kings: in two series, and the page also carries a Series node from
+        // a "readers also enjoyed" book, listed first.
+        Document doc = docWithApolloState("""
+                {
+                  "Series:kca://series/other": { "title": "Some Other Series" },
+                  "Series:kca://series/stormlight": { "title": "The Stormlight Archive" },
+                  "Series:kca://series/cosmere": { "title": "The Cosmere Universe" },
+                  "Book:kca://book/real": {
+                    "title": "The Way of Kings",
+                    "details": { "asin": "B003P2WO5E" },
+                    "bookSeries": [
+                      { "userPosition": "1", "series": { "__ref": "Series:kca://series/stormlight" } },
+                      { "userPosition": "6", "series": { "__ref": "Series:kca://series/cosmere" } }
+                    ]
+                  }
+                }
+                """);
+
+        BookMetadata result = parser.parseBookDetails(doc, "7235533");
+
+        assertThat(result.getSeriesName()).isEqualTo("The Stormlight Archive");
+        assertThat(result.getSeriesNumber()).isEqualTo(1f);
+    }
+
+    @Test
+    void standaloneBookDoesNotPickUpAnotherBooksSeries() {
+        Document doc = docWithApolloState("""
+                {
+                  "Series:kca://series/other": { "title": "Some Other Series" },
+                  "Book:kca://book/real": { "title": "Project Hail Mary", "details": { "asin": "B08FHBV4ZX" }, "bookSeries": [] }
+                }
+                """);
+
+        BookMetadata result = parser.parseBookDetails(doc, "54493401");
+
+        assertThat(result.getSeriesName()).isNull();
+        assertThat(result.getSeriesNumber()).isNull();
+    }
+
     // Shape of a real /book/auto_complete?format=json item (the fallback used when book pages are WAF-gated).
     private static JSONObject autocompleteItem(String kcrPreviewUrl, boolean truncated) throws Exception {
         return new JSONObject("""

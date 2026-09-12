@@ -221,7 +221,6 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
             LinkedHashSet<String> keySet = getJsonKeys(apolloStateJson);
 
             extractContributorDetails(apolloStateJson, keySet, builder);
-            extractSeriesDetails(apolloStateJson, keySet, builder);
             extractBookDetails(apolloStateJson, keySet, builder);
             extractWorkDetails(apolloStateJson, keySet, builder);
 
@@ -320,14 +319,6 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
         return matchingKeys;
     }
 
-    private void extractSeriesDetails(JSONObject apolloStateJson, LinkedHashSet<String> keySet, BookMetadata.BookMetadataBuilder builder) {
-        String seriesKey = findKeyByPrefix(keySet, "Series:kca");
-        String seriesName = getJsonStringField(apolloStateJson, seriesKey, "title");
-        if (seriesName != null) {
-            builder.seriesName(seriesName);
-        }
-    }
-
     private void extractBookDetails(JSONObject apolloStateJson, LinkedHashSet<String> keySet, BookMetadata.BookMetadataBuilder builder) {
         JSONObject bookJson = getValidBookJson(apolloStateJson, keySet);
         if (bookJson == null) {
@@ -357,11 +348,20 @@ public class GoodReadsParser implements BookParser, DetailedMetadataProvider {
             }
         }
 
+        // The book's primary series is its first bookSeries entry. Take the name from the Series node
+        // that entry points at rather than from whichever Series node comes first in apolloState:
+        // books in several series (Stormlight Archive #1 / Cosmere #6) and other books embedded on the
+        // page carry more Series nodes, which could pair this book's number with another series' name
+        // or give a standalone book a series.
         JSONArray bookSeriesJson = bookJson.optJSONArray("bookSeries");
-        if (bookSeriesJson != null && bookSeriesJson.length() > 0) {
-            JSONObject firstElement = bookSeriesJson.optJSONObject(0);
-            if (firstElement != null) {
-                builder.seriesNumber(parseNumber(firstElement.optString("userPosition"), Float::parseFloat));
+        JSONObject primarySeries = bookSeriesJson != null ? bookSeriesJson.optJSONObject(0) : null;
+        if (primarySeries != null) {
+            builder.seriesNumber(parseNumber(primarySeries.optString("userPosition"), Float::parseFloat));
+            JSONObject seriesRef = primarySeries.optJSONObject("series");
+            String ref = seriesRef != null ? normalizeNull(seriesRef.optString("__ref")) : null;
+            JSONObject seriesNode = ref != null ? apolloStateJson.optJSONObject(ref) : null;
+            if (seriesNode != null) {
+                builder.seriesName(normalizeNull(seriesNode.optString("title")));
             }
         }
     }
