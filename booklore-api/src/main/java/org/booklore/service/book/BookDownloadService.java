@@ -10,6 +10,7 @@ import org.booklore.repository.BookRepository;
 import org.booklore.service.appsettings.AppSettingService;
 import org.booklore.service.kobo.KepubConversionService;
 import org.booklore.service.kobo.CbxConversionService;
+import org.booklore.util.FolderZip;
 import org.booklore.util.FileUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
@@ -318,25 +319,7 @@ public class BookDownloadService {
     }
 
     private ResponseEntity<Resource> downloadFolderAsZip(Path folderPath, String folderName) throws IOException {
-        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-
-        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-            // Get all files in the folder, sorted by name
-            List<Path> files = Files.list(folderPath)
-                    .filter(Files::isRegularFile)
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .toList();
-
-            for (Path audioFile : files) {
-                ZipEntry entry = new ZipEntry(audioFile.getFileName().toString());
-                zos.putNextEntry(entry);
-                Files.copy(audioFile, zos);
-                zos.closeEntry();
-            }
-        }
-
-        byte[] zipBytes = baos.toByteArray();
-        Resource resource = new org.springframework.core.io.ByteArrayResource(zipBytes);
+        FileSystemResource resource = FolderZip.zipToTempFile(folderPath);
 
         String zipFileName = folderName + ".zip";
         String encodedFilename = URLEncoder.encode(zipFileName, StandardCharsets.UTF_8).replace("+", "%20");
@@ -347,7 +330,7 @@ public class BookDownloadService {
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
-                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(zipBytes.length))
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(resource.contentLength()))
                 .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .header(HttpHeaders.EXPIRES, "0")

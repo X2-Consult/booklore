@@ -8,8 +8,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
-import org.apache.pdfbox.rendering.ImageType;
-import org.apache.pdfbox.rendering.PDFRenderer;
 import org.booklore.exception.ApiError;
 import org.booklore.model.dto.response.PdfBookInfo;
 import org.booklore.model.dto.response.PdfOutlineItem;
@@ -18,6 +16,7 @@ import org.booklore.model.entity.BookFileEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.repository.BookRepository;
 import org.booklore.util.FileUtils;
+import org.booklore.util.PdfRenderUtils;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
@@ -42,6 +41,8 @@ public class PdfReaderService {
 
     private static final int MAX_CACHE_ENTRIES = 50;
     private static final float DEFAULT_DPI = 200f;
+    // 200 DPI leaves ordinary pages alone (A4 is 2339 px tall) but caps oversized ones.
+    private static final int MAX_PAGE_LONG_SIDE_PX = 3000;
 
     private final BookRepository bookRepository;
     private final Map<String, CachedPdfMetadata> metadataCache = new ConcurrentHashMap<>();
@@ -234,10 +235,9 @@ public class PdfReaderService {
     private void renderPageToStream(Path pdfPath, int page, OutputStream outputStream) throws IOException {
         try (RandomAccessReadBufferedFile randomAccessRead = new RandomAccessReadBufferedFile(pdfPath.toFile());
              PDDocument document = Loader.loadPDF(randomAccessRead)) {
-            PDFRenderer renderer = new PDFRenderer(document);
             BufferedImage image = null;
             try {
-                image = renderer.renderImageWithDPI(page - 1, DEFAULT_DPI, ImageType.RGB);
+                image = PdfRenderUtils.renderPage(document, page - 1, DEFAULT_DPI, MAX_PAGE_LONG_SIDE_PX);
                 ImageIO.write(image, "JPEG", outputStream);
             } finally {
                 if (image != null) {

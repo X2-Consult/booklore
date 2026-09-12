@@ -7,9 +7,10 @@ import org.booklore.model.entity.BookFileEntity;
 import org.booklore.repository.BookAdditionalFileRepository;
 import org.booklore.repository.BookRepository;
 import org.booklore.service.monitoring.MonitoringRegistrationService;
+import org.booklore.util.FolderZip;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -18,18 +19,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 @Slf4j
 @AllArgsConstructor
@@ -127,25 +124,7 @@ public class AdditionalFileService {
     }
 
     private ResponseEntity<Resource> downloadFolderAsZip(BookFileEntity file, Path folderPath) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-            // Get all files in the folder, sorted by name
-            List<Path> files = Files.list(folderPath)
-                    .filter(Files::isRegularFile)
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .toList();
-
-            for (Path audioFile : files) {
-                ZipEntry entry = new ZipEntry(audioFile.getFileName().toString());
-                zos.putNextEntry(entry);
-                Files.copy(audioFile, zos);
-                zos.closeEntry();
-            }
-        }
-
-        byte[] zipBytes = baos.toByteArray();
-        Resource resource = new ByteArrayResource(zipBytes);
+        FileSystemResource resource = FolderZip.zipToTempFile(folderPath);
 
         String zipFileName = file.getFileName() + ".zip";
         String encodedFilename = URLEncoder.encode(zipFileName, StandardCharsets.UTF_8).replace("+", "%20");
@@ -156,7 +135,7 @@ public class AdditionalFileService {
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
-                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(zipBytes.length))
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(resource.contentLength()))
                 .body(resource);
     }
 }

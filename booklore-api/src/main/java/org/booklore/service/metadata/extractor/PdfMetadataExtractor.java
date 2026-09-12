@@ -11,9 +11,8 @@ import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.common.PDMetadata;
-import org.apache.pdfbox.rendering.ImageType;
-import org.apache.pdfbox.rendering.PDFRenderer;
 import org.booklore.model.dto.BookMetadata;
+import org.booklore.util.PdfRenderUtils;
 import org.booklore.util.SecureXmlUtils;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -51,7 +50,7 @@ public class PdfMetadataExtractor implements FileMetadataExtractor {
         BufferedImage coverImage = null;
         try (RandomAccessReadBufferedFile randomAccessRead = new RandomAccessReadBufferedFile(file);
              PDDocument pdf = Loader.loadPDF(randomAccessRead)) {
-            coverImage = new PDFRenderer(pdf).renderImageWithDPI(0, 300, ImageType.RGB);
+            coverImage = PdfRenderUtils.renderPage(pdf, 0, 300, PdfRenderUtils.COVER_MAX_LONG_SIDE_PX);
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                 ImageIO.write(coverImage, "jpg", baos);
                 return baos.toByteArray();

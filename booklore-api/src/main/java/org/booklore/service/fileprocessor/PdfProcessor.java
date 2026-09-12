@@ -5,8 +5,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.rendering.ImageType;
-import org.apache.pdfbox.rendering.PDFRenderer;
 import org.booklore.mapper.BookMapper;
 import org.booklore.model.dto.BookMetadata;
 import org.booklore.model.dto.settings.LibraryFile;
@@ -22,6 +20,7 @@ import org.booklore.service.metadata.sidecar.SidecarMetadataWriter;
 import org.booklore.util.BookCoverUtils;
 import org.booklore.util.FileService;
 import org.booklore.util.FileUtils;
+import org.booklore.util.PdfRenderUtils;
 import org.springframework.stereotype.Service;
 
 import java.awt.image.BufferedImage;
@@ -211,7 +210,7 @@ public class PdfProcessor extends AbstractFileProcessor implements BookFileProce
     private boolean generateCoverImageAndSave(Long bookId, PDDocument document) throws IOException {
         BufferedImage coverImage = null;
         try {
-            coverImage = new PDFRenderer(document).renderImageWithDPI(0, 150, ImageType.RGB);
+            coverImage = PdfRenderUtils.renderPage(document, 0, 150, PdfRenderUtils.COVER_MAX_LONG_SIDE_PX);
             return fileService.saveCoverImages(coverImage, bookId);
         } catch (OutOfMemoryError e) {
             log.error("Out of memory (heap space exhausted) while generating cover for bookId {}. Skipping cover generation.", bookId);
