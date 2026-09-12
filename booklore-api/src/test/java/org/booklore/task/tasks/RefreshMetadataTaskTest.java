@@ -38,12 +38,33 @@ class RefreshMetadataTaskTest {
     @BeforeEach
     void setUp() {
         BookLoreUser.UserPermissions permissions = new BookLoreUser.UserPermissions();
+        // Any refresh needs edit rights; the tests below are about the extra bulk permission.
+        permissions.setCanEditMetadata(true);
         user = BookLoreUser.builder().permissions(permissions).build();
         
         taskCreateRequest = mock(TaskCreateRequest.class);
         metadataRefreshRequest = MetadataRefreshRequest.builder().build();
         
         when(taskCreateRequest.getOptionsAs(MetadataRefreshRequest.class)).thenReturn(metadataRefreshRequest);
+    }
+
+    @Test
+    void validatePermissions_singleBookRefreshStillNeedsEditPermission() {
+        user.getPermissions().setCanEditMetadata(false);
+        metadataRefreshRequest.setRefreshType(MetadataRefreshRequest.RefreshType.BOOKS);
+        metadataRefreshRequest.setBookIds(Set.of(1L));
+
+        assertThrows(APIException.class, () -> refreshMetadataTask.validatePermissions(user, taskCreateRequest));
+    }
+
+    @Test
+    void validatePermissions_adminNeedsNoEditFlag() {
+        user.getPermissions().setCanEditMetadata(false);
+        user.getPermissions().setAdmin(true);
+        metadataRefreshRequest.setRefreshType(MetadataRefreshRequest.RefreshType.BOOKS);
+        metadataRefreshRequest.setBookIds(Set.of(1L));
+
+        assertDoesNotThrow(() -> refreshMetadataTask.validatePermissions(user, taskCreateRequest));
     }
 
     @Test

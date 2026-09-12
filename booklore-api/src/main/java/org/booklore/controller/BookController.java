@@ -123,6 +123,7 @@ public class BookController {
     @Operation(summary = "Get ComicInfo metadata", description = "Retrieve ComicInfo metadata for a specific book.")
     @ApiResponse(responseCode = "200", description = "ComicInfo metadata returned successfully")
     @GetMapping("/{bookId}/cbx/metadata/comicinfo")
+    @CheckBookAccess(bookIdParam = "bookId")
     public ResponseEntity<?> getComicInfoMetadata(
             @Parameter(description = "ID of the book") @PathVariable long bookId) {
         return ResponseEntity.ok(bookMetadataService.getComicInfoMetadata(bookId));
@@ -131,6 +132,7 @@ public class BookController {
     @Operation(summary = "Get file metadata", description = "Extract embedded metadata from the book file.")
     @ApiResponse(responseCode = "200", description = "File metadata returned successfully")
     @GetMapping("/{bookId}/file-metadata")
+    @CheckBookAccess(bookIdParam = "bookId")
     public ResponseEntity<?> getFileMetadata(
             @Parameter(description = "ID of the book") @PathVariable long bookId) {
         return ResponseEntity.ok(bookMetadataService.getFileMetadata(bookId));

@@ -38,6 +38,9 @@ public class LibraryAccessAspect {
         }
 
         BookLoreUser user = authenticationService.getAuthenticatedUser();
+        if (user == null) {
+            throw ApiError.FORBIDDEN.createException("Authentication required.");
+        }
 
         if (user.getPermissions().isAdmin()) return;
 

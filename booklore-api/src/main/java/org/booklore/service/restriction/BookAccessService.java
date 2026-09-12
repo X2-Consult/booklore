@@ -37,6 +37,9 @@ public class BookAccessService {
 
     public void assertAccess(BookEntity bookEntity) {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
+        if (user == null) {
+            throw ApiError.FORBIDDEN.createException("Authentication required.");
+        }
 
         if (user.getPermissions().isAdmin()) {
             return;

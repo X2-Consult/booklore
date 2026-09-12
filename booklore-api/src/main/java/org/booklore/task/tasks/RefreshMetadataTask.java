@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import static org.booklore.exception.ApiError.PERMISSION_DENIED;
 import static org.booklore.model.enums.UserPermission.CAN_BULK_AUTO_FETCH_METADATA;
+import static org.booklore.model.enums.UserPermission.CAN_EDIT_METADATA;
 
 @AllArgsConstructor
 @Component
@@ -24,6 +25,13 @@ public class RefreshMetadataTask implements Task {
     @Override
     public void validatePermissions(BookLoreUser user, TaskCreateRequest request) {
         MetadataRefreshRequest refreshRequest = request.getOptionsAs(MetadataRefreshRequest.class);
+
+        // Every other task needs task-manager access; this one is also started from the book views,
+        // so it checks what it does instead. Even a single-book refresh rewrites that book's metadata.
+        boolean isAdmin = user.getPermissions() != null && user.getPermissions().isAdmin();
+        if (!isAdmin && !CAN_EDIT_METADATA.isGranted(user.getPermissions())) {
+            throw PERMISSION_DENIED.createException(CAN_EDIT_METADATA);
+        }
 
         if (requiresBulkPermission(refreshRequest) &&
             !CAN_BULK_AUTO_FETCH_METADATA.isGranted(user.getPermissions())) {
