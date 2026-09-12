@@ -6,6 +6,11 @@
   <title>BookLore</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <!-- EPUB chapters render in blob: iframes, which inherit this policy: scripts inside a book can't run
+       (no inline or blob: scripts), so a malicious EPUB can't act as the logged-in user. The reader's
+       iframes keep allow-scripts because WebKit needs it for events. Matches Grimmory's policy;
+       angular.json turns off critical-CSS inlining because its onload handler would be blocked. -->
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' blob:; frame-src 'self' blob: data:; object-src 'none'; form-action 'none';">
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg"/>
   <link rel="manifest" href="manifest.webmanifest">
 </head>
