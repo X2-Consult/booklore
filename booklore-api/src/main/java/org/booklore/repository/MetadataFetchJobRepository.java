@@ -21,6 +21,8 @@ public interface MetadataFetchJobRepository extends JpaRepository<MetadataFetchJ
     @Query("SELECT COUNT(m) FROM MetadataFetchJobEntity m")
     long countAll();
 
-    @Query("SELECT DISTINCT t FROM MetadataFetchJobEntity t LEFT JOIN FETCH t.proposals")
+    // No DISTINCT: Hibernate already de-duplicates fetch-joined roots, and an SQL DISTINCT over
+    // proposals.metadata_json fails on Postgres ("could not identify an equality operator for type json").
+    @Query("SELECT t FROM MetadataFetchJobEntity t LEFT JOIN FETCH t.proposals")
     List<MetadataFetchJobEntity> findAllWithProposals();
 }

@@ -129,6 +129,19 @@ class GoogleParserTest {
         verify(httpClient, times(3)).send(any(), any());
     }
 
+    @Test
+    void rateLimited_stopsCallingGoogleForTheCooldown() throws Exception {
+        HttpResponse<String> limited = mock(HttpResponse.class);
+        when(limited.statusCode()).thenReturn(429);
+        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(limited);
+        FetchMetadataRequest request = FetchMetadataRequest.builder().isbn("1234567890").build();
+
+        assertEquals(0, googleParser.fetchMetadata(Book.builder().build(), request).size());
+        assertEquals(0, googleParser.fetchMetadata(Book.builder().build(), request).size());
+
+        verify(httpClient, times(1)).send(any(), any());
+    }
+
     // Helper to mock single response
     private void mockResponse(String jsonBody) throws IOException, InterruptedException {
         HttpResponse<String> mockResponse = mock(HttpResponse.class);

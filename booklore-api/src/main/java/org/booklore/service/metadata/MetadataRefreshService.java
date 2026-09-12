@@ -53,7 +53,8 @@ public class MetadataRefreshService {
     // books quietly come back without that provider's fields.
     private static final Map<MetadataProvider, String> BLOCKED_PROVIDER_WARNINGS = Map.of(
             Amazon, "Amazon started blocking requests (bot check) at book %d, so Amazon fields are skipped while the block lasts.",
-            GoodReads, "GoodReads started blocking book pages at book %d, so GoodReads fields come from limited search data while the block lasts.");
+            GoodReads, "GoodReads started blocking book pages at book %d, so GoodReads fields come from limited search data while the block lasts.",
+            Google, "Google Books hit its rate limit at book %d, so Google fields are skipped for now. Adding a Google Books API key in the metadata provider settings avoids this.");
 
     private record BookRefreshPlan(Book book, String title, String identifier,
                                    MetadataRefreshOptions refreshOptions, List<MetadataProvider> providers) {}

@@ -56,6 +56,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
     private static final Pattern PARENTHESES_WITH_WHITESPACE_PATTERN = Pattern.compile("\\s*\\(.*?\\)");
     private static final Pattern NON_ALPHANUMERIC_PATTERN = Pattern.compile("[^\\p{L}\\p{M}0-9]");
     private static final Pattern DP_SEPARATOR_PATTERN = Pattern.compile("/dp/");
+    private static final Pattern ASIN_PATTERN = Pattern.compile("[A-Z0-9]{10}");
     private static final Pattern REVIEWED_IN_ON_PATTERN = Pattern.compile("(?i)(?:Reviewed in|Rezension aus|Beoordeeld in|Recensie uit|Commenté en|Recensito in|Revisado en)\\s+(.+?)\\s+(?:on|vom|op|le|il|el)\\s+(.+)");
     private static final Pattern JAPANESE_REVIEW_DATE_PATTERN = Pattern.compile("(\\d{4}年\\d{1,2}月\\d{1,2}日).+");
     private static final String[] TITLE_SELECTORS = {"#productTitle", "#ebooksProductTitle", "h1#title", "span#productTitle"};
@@ -102,6 +103,10 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
 
     @Override
     public BookMetadata fetchTopMetadata(Book book, FetchMetadataRequest fetchMetadataRequest) {
+        BookMetadata byKnownAsin = fetchByKnownAsin(fetchMetadataRequest.getAsin());
+        if (byKnownAsin != null) {
+            return byKnownAsin;
+        }
         LinkedList<String> amazonBookIds = getAmazonBookIds(book, fetchMetadataRequest);
         if (amazonBookIds == null || amazonBookIds.isEmpty()) {
             return null;
@@ -127,6 +132,26 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             }
         }
         return results;
+    }
+
+    // A book that already has an ASIN goes straight to its product page: one page load instead of
+    // search + product page, and no chance of the search picking a different book. Falls back to
+    // searching when the ASIN doesn't resolve in this store (e.g. a Kindle ASIN from another region).
+    private BookMetadata fetchByKnownAsin(String rawAsin) {
+        String asin = rawAsin == null ? null : rawAsin.strip().toUpperCase(Locale.ROOT);
+        if (asin == null || !ASIN_PATTERN.matcher(asin).matches()) {
+            return null;
+        }
+        try {
+            BookMetadata metadata = getBookMetadata(asin);
+            if (metadata != null && metadata.getTitle() != null && !metadata.getTitle().isBlank()) {
+                return metadata;
+            }
+            log.info("Amazon: known ASIN {} has no product page here, falling back to search", asin);
+        } catch (Exception e) {
+            log.info("Amazon: known ASIN {} lookup failed ({}), falling back to search", asin, e.getMessage());
+        }
+        return null;
     }
 
     private List<BookMetadata> extractSearchPreviews(Document doc) {

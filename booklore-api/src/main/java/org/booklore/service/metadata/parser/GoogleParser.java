@@ -47,16 +47,22 @@ public class GoogleParser implements BookParser {
     private final HttpClient httpClient;
     private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes";
     private final AtomicLong lastRequestTime = new AtomicLong(0);
+    private final MetadataProviderGuard providerGuard;
 
     @Autowired
-    public GoogleParser(ObjectMapper objectMapper, AppSettingService appSettingService) {
-        this(objectMapper, appSettingService, HttpClient.newHttpClient());
+    public GoogleParser(ObjectMapper objectMapper, AppSettingService appSettingService, MetadataProviderGuard providerGuard) {
+        this(objectMapper, appSettingService, HttpClient.newHttpClient(), providerGuard);
     }
 
     public GoogleParser(ObjectMapper objectMapper, AppSettingService appSettingService, HttpClient httpClient) {
+        this(objectMapper, appSettingService, httpClient, new MetadataProviderGuard());
+    }
+
+    public GoogleParser(ObjectMapper objectMapper, AppSettingService appSettingService, HttpClient httpClient, MetadataProviderGuard providerGuard) {
         this.objectMapper = objectMapper;
         this.appSettingService = appSettingService;
         this.httpClient = httpClient;
+        this.providerGuard = providerGuard;
     }
 
     @Override
@@ -142,6 +148,14 @@ public class GoogleParser implements BookParser {
     }
 
     private List<BookMetadata> fetchFromApi(String query, boolean isIsbnSearch) {
+        // Once Google answers 429 (typically the shared keyless quota being used up for the day)
+        // every further request in a batch fails the same way, so stop asking until the cooldown
+        // ends -- or until an API key is configured, which lifts the block straight away.
+        String apiKey = currentApiKey();
+        if (providerGuard.isBlocked(MetadataProvider.Google, apiKey)) {
+            log.debug("Google Books: skipping request during rate-limit cooldown: {}", query);
+            return List.of();
+        }
         try {
             waitForRateLimit();
 
@@ -163,6 +177,11 @@ public class GoogleParser implements BookParser {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 429) {
+                log.warn("Google Books API rate limit exceeded{}.", apiKey == null ? " (no API key is set -- add one in the Google metadata provider settings)" : "");
+                providerGuard.markBlocked(MetadataProvider.Google, apiKey);
+                return List.of();
+            }
 
             return handleApiResponse(response);
         } catch (IOException e) {
@@ -182,11 +201,6 @@ public class GoogleParser implements BookParser {
             List<BookMetadata> results = parseGoogleBooksApiResponse(response.body());
             List<BookMetadata> filtered = filterIrrelevantResults(results);
             return sortByCompleteness(filtered);
-        }
-        
-        if (statusCode == 429) {
-            log.warn("Google Books API rate limit exceeded. Consider increasing request interval.");
-            return List.of();
         }
         
         if (statusCode >= 500) {
@@ -577,6 +591,12 @@ public class GoogleParser implements BookParser {
             log.debug("Could not parse date '{}': {}", input, e.getMessage());
             return null;
         }
+    }
+
+    private String currentApiKey() {
+        MetadataProviderSettings providerSettings = appSettingService.getAppSettings().getMetadataProviderSettings();
+        String apiKey = providerSettings != null && providerSettings.getGoogle() != null ? providerSettings.getGoogle().getApiKey() : null;
+        return apiKey == null || apiKey.isBlank() ? null : apiKey;
     }
 
     private String getApiUrl() {

@@ -141,6 +141,33 @@ class BrowserRoutingParserTest {
         }
 
         @Test
+        void knownAsin_goesStraightToTheProductPage_withoutSearching() {
+            String dpUrl = "https://www.amazon.com.au/dp/B08FFJS3YW";
+            when(browser.fetch(eq(dpUrl), anyMap(), any())).thenReturn(Optional.of(page(dpUrl, DETAIL_PAGE, true)));
+
+            BookMetadata result = parser.fetchTopMetadata(Book.builder().id(1L).build(),
+                    FetchMetadataRequest.builder().asin("b08ffjs3yw").isbn("9780593135204").build());
+
+            assertThat(result.getTitle()).isEqualTo("Project Hail Mary");
+            verify(browser, times(1)).fetch(any(), anyMap(), any());
+        }
+
+        @Test
+        void knownAsinWithNoProductPageHere_fallsBackToSearch() {
+            String dpUrl = "https://www.amazon.com.au/dp/B0NOTINAU1";
+            when(browser.fetch(eq(dpUrl), anyMap(), any()))
+                    .thenReturn(Optional.of(page(dpUrl, "<html><body>Sorry! We couldn't find that page.</body></html>", true)));
+            when(browser.fetch(eq(SEARCH_URL), anyMap(), any())).thenReturn(Optional.of(page(SEARCH_URL, SEARCH_PAGE, true)));
+            when(browser.fetch(eq(DETAIL_URL), anyMap(), any())).thenReturn(Optional.of(page(DETAIL_URL, DETAIL_PAGE, true)));
+
+            BookMetadata result = parser.fetchTopMetadata(Book.builder().id(1L).build(),
+                    FetchMetadataRequest.builder().asin("B0NOTINAU1").isbn("9780593135204").build());
+
+            assertThat(result.getTitle()).isEqualTo("Project Hail Mary");
+            verify(browser).fetch(eq(SEARCH_URL), anyMap(), any());
+        }
+
+        @Test
         void activeCooldown_skipsTheBrowserEntirely() {
             when(providerGuard.isBlocked(MetadataProvider.Amazon, "session-id=abc")).thenReturn(true);
 
