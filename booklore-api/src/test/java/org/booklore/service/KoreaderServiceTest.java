@@ -94,10 +94,10 @@ class KoreaderServiceTest {
     void authorizeUser_success() {
         when(details.isSyncEnabled()).thenReturn(true);
         var userEntity = new KoreaderUserEntity();
-        userEntity.setPasswordMD5("MD5PWD");
+        userEntity.setPasswordMD5("5F4DCC3B5AA765D61D8327DEB882CF99");
         when(koreaderUserRepo.findByUsername("u"))
                 .thenReturn(Optional.of(userEntity));
-        when(details.getPassword()).thenReturn("MD5PWD");
+        when(details.getPassword()).thenReturn("5f4dcc3b5aa765d61d8327deb882cf99");
 
         ResponseEntity<Map<String, String>> resp = service.authorizeUser();
         assertEquals(200, resp.getStatusCode().value());

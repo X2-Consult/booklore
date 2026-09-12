@@ -1,5 +1,6 @@
 package org.booklore.config.security.filter;
 
+import org.booklore.service.koreader.KoreaderPasswords;
 import org.booklore.config.security.userdetails.KoreaderUserDetails;
 import org.booklore.repository.KoreaderUserRepository;
 import jakarta.servlet.FilterChain;
@@ -39,7 +40,7 @@ public class KoreaderAuthFilter extends OncePerRequestFilter {
 
         if (username != null && key != null) {
             koreaderUserRepository.findByUsername(username).ifPresentOrElse(user -> {
-                if (user.getPasswordMD5().equalsIgnoreCase(key)) {
+                if (KoreaderPasswords.md5Matches(user.getPasswordMD5(), key)) {
                     Long bookLoreUserId = null;
                     if (user.getBookLoreUser() != null) {
                         bookLoreUserId = user.getBookLoreUser().getId();

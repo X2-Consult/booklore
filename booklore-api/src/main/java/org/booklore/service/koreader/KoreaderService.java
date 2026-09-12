@@ -332,8 +332,7 @@ public class KoreaderService {
     }
 
     private void validatePassword(KoreaderUserEntity koreaderUser, KoreaderUserDetails authDetails) {
-        if (koreaderUser.getPasswordMD5() == null ||
-                !koreaderUser.getPasswordMD5().equalsIgnoreCase(authDetails.getPassword())) {
+        if (!KoreaderPasswords.md5Matches(koreaderUser.getPasswordMD5(), authDetails.getPassword())) {
             log.warn("Password mismatch for user '{}'", authDetails.getUsername());
             throw ApiError.GENERIC_UNAUTHORIZED.createException("Invalid credentials");
         }
