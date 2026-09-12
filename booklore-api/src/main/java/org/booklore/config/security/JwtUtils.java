@@ -17,6 +17,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -30,6 +31,18 @@ public class JwtUtils {
     @Getter
     public static final long refreshTokenExpirationMs = 1000L * 60 * 60 * 24 * 30; // 30 days
 
+    // A refresh token can't be redeemed straight after it's issued (Grimmory c7d147c8). The frontend
+    // only refreshes after a 401, and access tokens last 10 hours, so a legitimate client never hits it.
+    static final long refreshTokenNotBeforeMs = 1000L * 60 * 2;
+
+    // Access and refresh tokens are otherwise signed identically, so the claim is what stops a refresh
+    // token (30 days, revocable only in the database) being presented as a bearer token.
+    static final String TOKEN_USE_CLAIM = "token_use";
+    static final String TOKEN_USE_ACCESS = "access";
+    static final String TOKEN_USE_REFRESH = "refresh";
+    // Tokens issued before the claim existed are told apart by lifetime instead.
+    private static final long LEGACY_ACCESS_LIFETIME_SLACK_MS = 1000L * 60;
+
     private SecretKey getSigningKey() {
         String secretKey = jwtSecretService.getSecret();
         return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
@@ -38,14 +51,18 @@ public class JwtUtils {
     public String generateToken(BookLoreUserEntity user, boolean isRefreshToken) {
         long expirationTime = isRefreshToken ? refreshTokenExpirationMs : accessTokenExpirationMs;
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(user.getUsername())
                 .claim("userId", user.getId())
                 .claim("isDefaultPassword", user.isDefaultPassword())
+                .claim(TOKEN_USE_CLAIM, isRefreshToken ? TOKEN_USE_REFRESH : TOKEN_USE_ACCESS)
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationTime)))
-                .signWith(getSigningKey(), Jwts.SIG.HS256)
-                .compact();
+                .expiration(Date.from(now.plusMillis(expirationTime)));
+        if (isRefreshToken) {
+            builder.notBefore(Date.from(now.plusMillis(refreshTokenNotBeforeMs)));
+        }
+        return builder.signWith(getSigningKey(), Jwts.SIG.HS256).compact();
     }
 
     public String generateAccessToken(BookLoreUserEntity user) {
@@ -66,6 +83,37 @@ public class JwtUtils {
             log.debug("Invalid token: {}", e.getMessage());
         }
         return false;
+    }
+
+    /**
+     * For every path that authenticates a request with a token (API calls, WebSockets, streaming
+     * query parameters): the token must be valid and must be an access token.
+     */
+    public boolean validateAccessToken(String token) {
+        try {
+            if (isAccessToken(extractClaims(token))) {
+                return true;
+            }
+            log.debug("Rejected a refresh token presented as an access token");
+        } catch (ExpiredJwtException e) {
+            log.debug("Token expired: {}", e.getMessage());
+        } catch (JwtException e) {
+            log.debug("Invalid token: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    static boolean isAccessToken(Claims claims) {
+        Object use = claims.get(TOKEN_USE_CLAIM);
+        if (use != null) {
+            return TOKEN_USE_ACCESS.equals(use);
+        }
+        Date issuedAt = claims.getIssuedAt();
+        Date expiration = claims.getExpiration();
+        if (issuedAt == null || expiration == null) {
+            return false;
+        }
+        return expiration.getTime() - issuedAt.getTime() <= accessTokenExpirationMs + LEGACY_ACCESS_LIFETIME_SLACK_MS;
     }
 
     public Claims extractClaims(String token) {

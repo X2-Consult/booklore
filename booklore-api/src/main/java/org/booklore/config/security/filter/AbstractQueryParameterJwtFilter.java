@@ -35,7 +35,7 @@ public abstract class AbstractQueryParameterJwtFilter extends OncePerRequestFilt
         }
 
         try {
-            if (jwtUtils.validateToken(token)) {
+            if (jwtUtils.validateAccessToken(token)) {
                 authenticateUser(token, request);
             } else {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");

@@ -57,7 +57,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             return null;
         }
         try {
-            if (jwtUtils.validateToken(token)) {
+            if (jwtUtils.validateAccessToken(token)) {
                 String username = jwtUtils.extractUsername(token);
                 if (username != null && !username.trim().isEmpty()) {
                     return new UsernamePasswordAuthenticationToken(username, null, null);

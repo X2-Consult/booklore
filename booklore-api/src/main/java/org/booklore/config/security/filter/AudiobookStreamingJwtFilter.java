@@ -52,7 +52,7 @@ public class AudiobookStreamingJwtFilter extends OncePerRequestFilter {
         }
 
         try {
-            if (jwtUtils.validateToken(token)) {
+            if (jwtUtils.validateAccessToken(token)) {
                 authenticateUser(token, request);
             } else {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
