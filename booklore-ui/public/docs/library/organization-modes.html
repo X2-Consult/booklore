@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>📂 Organization Modes | BookLore Docs (archived)</title>
+<title>📂 Organization Modes | Trove Docs</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root { color-scheme: light dark; }
@@ -28,17 +28,17 @@
 </head>
 <body>
 <div class="archive-notice">
-  📦 This is a local archived copy of the BookLore documentation (booklore.org/docs), captured
+  📦 Trove started as BookLore. These pages are adapted from the BookLore documentation (booklore.org/docs), captured
   20260305164130 via the Wayback Machine after the original site went offline.
   <a href="../index.html">Back to docs index</a>
 </div>
 <header><h1>📂 Organization Modes</h1></header>
-<p>When you create a library, you choose an <strong>organization mode</strong> that tells Booklore how to group your files into books. This is a per-library setting and cannot be changed after creation.</p>
+<p>When you create a library, you choose an <strong>organization mode</strong> that tells Trove how to group your files into books. This is a per-library setting and cannot be changed after creation.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="-book-per-file">📄 Book Per File<a href="#-book-per-file" class="hash-link" aria-label="Direct link to 📄 Book Per File" title="Direct link to 📄 Book Per File">​</a></h2>
 <p>Every file becomes its own book. No grouping, no fuzzy matching, no surprises.</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">Library/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">├── American Gods/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│   ├── American Gods.epub   ← book 1</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│   ├── American Gods.pdf    ← book 2</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│   └── American Gods.m4b    ← book 3</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└── Dune/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    └── Dune.epub            ← book 4</span><br></span></code></pre></div></div>
-<p>Even though the three American Gods files share a folder and a name, each one is a separate book entry in Booklore.</p>
+<p>Even though the three American Gods files share a folder and a name, each one is a separate book entry in Trove.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="when-to-use-it">When to use it<a href="#when-to-use-it" class="hash-link" aria-label="Direct link to When to use it" title="Direct link to When to use it">​</a></h3>
 <ul>
 <li>You want full control over what counts as a book</li>
@@ -49,7 +49,7 @@
 <p>Works the same way. Every file at the library root is its own book.</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">Library/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">├── Dune.epub       ← book 1</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">├── Dune.pdf        ← book 2</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└── 1984.epub       ← book 3</span><br></span></code></pre></div></div>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="audiobooks">Audiobooks<a href="#audiobooks" class="hash-link" aria-label="Direct link to Audiobooks" title="Direct link to Audiobooks">​</a></h3>
-<p>Chaptered audiobooks (2+ audio files in a folder) are still grouped into a single audiobook. Booklore detects folder-based audiobooks before the organization mode is applied, so this works the same in both modes.</p>
+<p>Chaptered audiobooks (2+ audio files in a folder) are still grouped into a single audiobook. Trove detects folder-based audiobooks before the organization mode is applied, so this works the same in both modes.</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">Library/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└── Project Hail Mary/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ├── 01 - Chapter 1.mp3   ← ┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ├── 02 - Chapter 2.mp3   ← ├─ one audiobook</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    └── 03 - Chapter 3.mp3   ← ┘</span><br></span></code></pre></div></div>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="-book-per-folder">📁 Book Per Folder<a href="#-book-per-folder" class="hash-link" aria-label="Direct link to 📁 Book Per Folder" title="Direct link to 📁 Book Per Folder">​</a></h2>
@@ -71,9 +71,9 @@
 <h4 class="anchor anchorWithStickyNavbar_LWe7" id="audio-absorption">Audio absorption<a href="#audio-absorption" class="hash-link" aria-label="Direct link to Audio absorption" title="Direct link to Audio absorption">​</a></h4>
 <p>If an audiobook subfolder sits under a folder that already has an ebook, the audiobook is absorbed into the same book entry.</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">Library/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└── Project Hail Mary/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ├── Project Hail Mary.epub   ← ┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    └── audiobook/                   │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        ├── 01 - Chapter 1.mp3  ← ├─ one book (epub + audiobook)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        ├── 02 - Chapter 2.mp3  ← │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        └── 03 - Chapter 3.mp3  ← ┘</span><br></span></code></pre></div></div>
-<p>This means you don't need to keep ebooks and chaptered audiobooks in separate folders. Booklore walks up the directory tree looking for a parent folder that contains an ebook and merges them.</p>
+<p>This means you don't need to keep ebooks and chaptered audiobooks in separate folders. Trove walks up the directory tree looking for a parent folder that contains an ebook and merges them.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="author-folders-and-nesting">Author folders and nesting<a href="#author-folders-and-nesting" class="hash-link" aria-label="Direct link to Author folders and nesting" title="Direct link to Author folders and nesting">​</a></h3>
-<p>Intermediate directories (like author folders) don't interfere. Booklore groups by the <strong>immediate parent folder</strong> of each file.</p>
+<p>Intermediate directories (like author folders) don't interfere. Trove groups by the <strong>immediate parent folder</strong> of each file.</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">Library/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└── Brandon Sanderson/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ├── Mistborn 1 - The Final Empire/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    │   ├── The Final Empire.epub   ← one book</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    │   └── The Final Empire.m4b    ← same book</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    └── Mistborn 2 - The Well of Ascension/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        └── The Well of Ascension.epub  ← different book</span><br></span></code></pre></div></div>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="series-in-one-folder">Series in one folder<a href="#series-in-one-folder" class="hash-link" aria-label="Direct link to Series in one folder" title="Direct link to Series in one folder">​</a></h3>
 <p>If you put multiple series entries in a single folder, they will all be merged into one book. Give each book its own folder.</p>

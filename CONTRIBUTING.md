@@ -1,10 +1,10 @@
-# Contributing to Booklore
+# Contributing to Trove
 
-Thanks for your interest in contributing to Booklore! Whether you're fixing bugs, adding features, improving documentation, or asking questions, every contribution helps.
+Thanks for your interest in contributing to Trove! Whether you're fixing bugs, adding features, improving documentation, or asking questions, every contribution helps.
 
-## What is Booklore?
+## What is Trove?
 
-**Booklore** is a self-hostable digital library platform for managing and reading books and comics.
+**Trove** is a self-hostable digital library platform for managing and reading books and comics.
 
 **Tech Stack:**
 
@@ -62,8 +62,8 @@ Not sure where to begin? Look for issues labeled:
 First, [fork the repository](https://github.com/X2-Consult/trove/fork) on GitHub, then clone your fork locally:
 
 ```bash
-git clone https://github.com/<your-username>/booklore.git
-cd booklore
+git clone https://github.com/<your-username>/trove.git
+cd trove
 git remote add upstream https://github.com/X2-Consult/trove.git
 ```
 
@@ -87,7 +87,7 @@ git push origin develop
 ### Project Structure
 
 ```
-booklore/
+trove/
 ├── booklore-ui/             # Angular frontend (TypeScript, PrimeNG)
 ├── booklore-api/            # Spring Boot backend (Java 25, Gradle)
 ├── dev.docker-compose.yml   # Development Docker stack
@@ -137,9 +137,9 @@ For full control over each component or IDE integration (debugging, hot-reload, 
 Start PostgreSQL and create the database:
 
 ```sql
-CREATE DATABASE booklore;
-CREATE USER booklore_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE booklore TO booklore_user;
+CREATE DATABASE trove;
+CREATE USER trove_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE trove TO trove_user;
 ```
 
 > **Tip:** You can also spin up PostgreSQL via Docker: `docker compose -f local/docker-compose-postgres.yml up -d`
@@ -150,14 +150,14 @@ Create a dev config at `booklore-api/src/main/resources/application-dev.yml`:
 
 ```yaml
 app:
-  path-config: '/path/to/booklore-data/config'
-  bookdrop-folder: '/path/to/booklore-data/bookdrop'
+  path-config: '/path/to/trove-data/config'
+  bookdrop-folder: '/path/to/trove-data/bookdrop'
 
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/booklore
-    username: booklore_user
+    url: jdbc:postgresql://localhost:5432/trove
+    username: trove_user
     password: your_password
 ```
 
@@ -202,7 +202,7 @@ ng test --coverage    # With coverage report (output: coverage/)
 ```bash
 cd booklore-api
 ./gradlew test                                                        # Run all tests
-./gradlew test --tests "com.booklore.api.service.BookServiceTest"     # Specific class
+./gradlew test --tests "org.booklore.service.book.BookServiceTest"     # Specific class
 ./gradlew test jacocoTestReport                                       # Coverage report
 ```
 
@@ -331,7 +331,7 @@ We've seen a sharp increase in AI-generated PRs where the contributor clearly ne
    - Steps to reproduce
    - Expected vs. actual behavior
    - Screenshots or error logs (if applicable)
-   - Environment details (OS, browser, Booklore version)
+   - Environment details (OS, browser, Trove version)
 
 **Example:**
 
@@ -347,7 +347,7 @@ Steps to Reproduce:
 Expected: Title should persist after refresh
 Actual: Title reverts to original value
 
-Environment: Chrome 120, macOS 14.2, Booklore 1.2.0
+Environment: Chrome 120, macOS 14.2, Trove 1.2.0
 ```
 
 ---
@@ -379,8 +379,8 @@ Instances of unacceptable behavior may result in temporary or permanent ban from
 
 ## License
 
-Booklore is licensed under the [AGPL-3.0 License](./LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
+Trove is licensed under the [AGPL-3.0 License](./LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
 
 ---
 
-Thank you for being part of the Booklore community!
+Thank you for being part of the Trove community!

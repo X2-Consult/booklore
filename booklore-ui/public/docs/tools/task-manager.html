@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🖥️ System Task Manager | BookLore Docs (archived)</title>
+<title>🖥️ System Task Manager | Trove Docs</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root { color-scheme: light dark; }
@@ -28,7 +28,7 @@
 </head>
 <body>
 <div class="archive-notice">
-  📦 This is a local archived copy of the BookLore documentation (booklore.org/docs), captured
+  📦 Trove started as BookLore. These pages are adapted from the BookLore documentation (booklore.org/docs), captured
   20260305164130 via the Wayback Machine after the original site went offline.
   <a href="../index.html">Back to docs index</a>
 </div>
@@ -38,15 +38,15 @@
 <p><img decoding="async" loading="lazy" alt="System Task Manager" src="https://web.archive.org/web/20260224011320im_/https://booklore.org/assets/images/system-task-manager-4c79c063cc459d7e349a6379c51015fb.jpg" width="1200" height="871" class="img_ev3q"></p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="-system-tasks">📋 System Tasks<a href="#-system-tasks" class="hash-link" aria-label="Direct link to 📋 System Tasks" title="Direct link to 📋 System Tasks">​</a></h2>
-<p>Booklore provides six system tasks. Each can be run manually or on a schedule.</p>
+<p>Trove provides six system tasks. Each can be run manually or on a schedule.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="1--refresh-metadata">1. 🔄 Refresh Metadata<a href="#1--refresh-metadata" class="hash-link" aria-label="Direct link to 1. 🔄 Refresh Metadata" title="Direct link to 1. 🔄 Refresh Metadata">​</a></h3>
-<p>Re-reads book information (title, author, cover, etc.) from your files and updates the Booklore database.</p>
+<p>Re-reads book information (title, author, cover, etc.) from your files and updates the Trove database.</p>
 <p>This task has a <strong>Metadata Replace Mode</strong> option:</p>
 <table><thead><tr><th>Mode</th><th>Description</th></tr></thead><tbody><tr><td><strong>Update Missing Metadata Only</strong> (Recommended)</td><td>Only fills in missing metadata fields. Existing metadata is preserved. Safe for routine use.</td></tr><tr><td><strong>Replace All Metadata</strong></td><td>Overwrites all metadata for every book with data from the files, even if metadata already exists. Use with caution.</td></tr></tbody></table>
 <div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewbox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"></path></svg></span>Replace All</div><div class="admonitionContent_BuS1"><p>"Replace All Metadata" will overwrite your manually edited metadata, cover changes, and fetched data. Back up your database before using this mode.</p></div></div>
 <p><strong>When to use:</strong></p>
 <ul>
-<li>After editing book files outside Booklore</li>
+<li>After editing book files outside Trove</li>
 <li>After bulk imports where embedded metadata needs to be read</li>
 <li>To recover metadata from book files after a database issue</li>
 </ul>
@@ -65,7 +65,7 @@
 <p><strong>When to use:</strong></p>
 <ul>
 <li>When Bookdrop file monitoring isn't detecting new uploads</li>
-<li>To process files dropped into the ingest folder while Booklore was offline</li>
+<li>To process files dropped into the ingest folder while Trove was offline</li>
 <li>As a scheduled fallback alongside real-time Bookdrop monitoring</li>
 </ul>
 <hr>
@@ -107,7 +107,7 @@
 <li><strong>Enable/disable toggle</strong> to activate or deactivate the schedule</li>
 <li><strong>Edit button</strong> (pencil icon) to modify the expression</li>
 </ul>
-<p>Click the edit button to enter a new cron expression. Booklore uses <strong>Spring cron format</strong> with 6 fields:</p>
+<p>Click the edit button to enter a new cron expression. Trove uses <strong>Spring cron format</strong> with 6 fields:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌───────────── second (0-59)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ ┌───────────── minute (0-59)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ │ ┌───────────── hour (0-23)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ │ │ ┌───────────── day of month (1-31)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ │ │ │ ┌───────────── month (1-12)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ │ │ │ │ ┌───────────── day of week (0-7, 0 and 7 = Sunday)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ │ │ │ │ │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">* * * * * *</span><br></span></code></pre></div></div>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="common-schedule-examples">Common Schedule Examples<a href="#common-schedule-examples" class="hash-link" aria-label="Direct link to Common Schedule Examples" title="Direct link to Common Schedule Examples">​</a></h3>
 <table><thead><tr><th>Expression</th><th>Runs</th></tr></thead><tbody><tr><td><code>0 0 2 * * *</code></td><td>Every day at 2:00 AM</td></tr><tr><td><code>0 0 */6 * * *</code></td><td>Every 6 hours</td></tr><tr><td><code>0 30 1 * * 1</code></td><td>Every Monday at 1:30 AM</td></tr><tr><td><code>0 0 3 1 * *</code></td><td>First day of each month at 3:00 AM</td></tr><tr><td><code>0 0 0 * * 6,0</code></td><td>Every Saturday and Sunday at midnight</td></tr></tbody></table>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🎯 Bookdrop Advanced Features | BookLore Docs (archived)</title>
+<title>🎯 Bookdrop Advanced Features | Trove Docs</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root { color-scheme: light dark; }
@@ -28,12 +28,12 @@
 </head>
 <body>
 <div class="archive-notice">
-  📦 This is a local archived copy of the BookLore documentation (booklore.org/docs), captured
+  📦 Trove started as BookLore. These pages are adapted from the BookLore documentation (booklore.org/docs), captured
   20260305164130 via the Wayback Machine after the original site went offline.
   <a href="./index.html">Back to docs index</a>
 </div>
 <header><h1>🎯 Bookdrop Advanced Features</h1></header>
-<p>Bookdrop has 2 more advanced tools to assist with importing large collections into Booklore</p>
+<p>Bookdrop has 2 more advanced tools to assist with importing large collections into Trove</p>
 <ul>
 <li>Bulk Edit</li>
 <li>Pattern Extraction</li>
@@ -86,11 +86,11 @@
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="pattern-examples">Pattern Examples<a href="#pattern-examples" class="hash-link" aria-label="Direct link to Pattern Examples" title="Direct link to Pattern Examples">​</a></h3>
 <table><thead><tr><th>Filename</th><th>Pattern</th><th>Result</th></tr></thead><tbody><tr><td><code>John Smith - The Lost City.epub</code></td><td><code>{Authors} - {Title}</code></td><td>Authors="John Smith"<br>Title="The Lost City"</td></tr><tr><td><code>Chronicles #025.cbz</code></td><td><code>{SeriesName} #{SeriesNumber}</code></td><td>Series="Chronicles"<br>Number=25</td></tr><tr><td><code>The Book (2023).epub</code></td><td><code>{Title} ({Published})</code></td><td>Title="The Book"<br>Year=2023</td></tr><tr><td><code>[Tag] Series - Ch 5.cbz</code></td><td><code>[*] {SeriesName} - Ch {SeriesNumber}</code></td><td>Series="Series"<br>Number=5</td></tr></tbody></table>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="date-formats">Date Formats<a href="#date-formats" class="hash-link" aria-label="Direct link to Date Formats" title="Direct link to Date Formats">​</a></h3>
-<p>While Booklore will attempt to automatically detect the right date format to match what is given, you can explicitly tell it the format to override any auto-detection. This is useful when a date is ambigious.</p>
+<p>While Trove will attempt to automatically detect the right date format to match what is given, you can explicitly tell it the format to override any auto-detection. This is useful when a date is ambigious.</p>
 <p>The below are some example formats that can be given to a date placeholder:</p>
 <table><thead><tr><th>Format</th><th>Example</th><th>Use</th></tr></thead><tbody><tr><td><code>yyyy-MM-dd</code></td><td>2023-05-15</td><td>ISO standard</td></tr><tr><td><code>MM-dd-yyyy</code></td><td>05-15-2023</td><td>US format</td></tr><tr><td><code>dd.MM.yyyy</code></td><td>15.05.2023</td><td>European</td></tr><tr><td><code>yyyyMMdd</code></td><td>20230515</td><td>Compact</td></tr><tr><td><code>yyyy</code></td><td>2023</td><td>Year only</td></tr></tbody></table>
 <p>Tokens: <code>yyyy</code>=year, <code>MM</code>=month, <code>dd</code>=day, <code>M</code>=1-2 digit month, <code>d</code>=1-2 digit day</p>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewbox="0 0 14 16"><path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"></path></svg></span>note</div><div class="admonitionContent_BuS1"><p>When using <code>yyyy</code> it'll default the day/month to the first of January when adding to the book metadata, as Booklore requires a full date value</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewbox="0 0 14 16"><path fill-rule="evenodd" d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"></path></svg></span>note</div><div class="admonitionContent_BuS1"><p>When using <code>yyyy</code> it'll default the day/month to the first of January when adding to the book metadata, as Trove requires a full date value</p></div></div>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="-quick-tips">💡 Quick Tips<a href="#-quick-tips" class="hash-link" aria-label="Direct link to 💡 Quick Tips" title="Direct link to 💡 Quick Tips">​</a></h2>
 <p><strong>Pattern Extraction:</strong></p>

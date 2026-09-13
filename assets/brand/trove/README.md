@@ -14,3 +14,7 @@ The web app uses the same path data (`booklore-ui/src/app/shared/components/trov
 the `accent` variant fills it with the theme's accent colour, as the brand's dynamic-accent system
 intends, and the `gradient` variant uses the brand gradient `#0a66ff → #10a6ee → #1ed3bf`. App icons
 put the gradient mark at 58% on `#0f1a23`, so it stays inside the maskable safe zone.
+
+- `trove-logo-light.svg`, `trove-logo-dark.svg` — the full lockup (symbol, wordmark and tagline) for light and dark
+  backgrounds, with the text outlined from Montserrat (SIL Open Font License), so no font is needed to display them.
+  `generate-lockup.py` rebuilds them.

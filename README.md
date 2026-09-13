@@ -1,35 +1,41 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-with-text-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/logo-with-text-light.svg">
-    <img src="assets/logo-with-text-light.svg" alt="BookLore" height="80" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/trove/trove-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/trove/trove-logo-light.svg">
+    <img src="assets/brand/trove/trove-logo-light.svg" alt="Trove" height="96" />
   </picture>
 </p>
 
-<p align="center"><strong>Your books deserve a home. This is it.</strong></p>
+<p align="center"><strong>Your library. Your server. Your books.</strong></p>
 
 <p align="center">
-BookLore is a self-hosted app that brings your entire book collection under one roof.<br/>
+Trove is a self-hosted app that brings your entire book collection under one roof.<br/>
 Organize, read, annotate, sync across devices, and share, all without relying on third-party services.
 </p>
 
 ---
 
 > [!NOTE]
-> **This project started as a fork of [booklore-app/booklore](https://github.com/booklore-app/booklore),** which appears to have been
-> abandoned by its maintainer. It's now maintained here independently, moving forward on its own — see [What's Changed](#whats-changed-in-this-fork) below.
+> **Trove started as a fork of [BookLore](https://github.com/booklore-app/booklore),** which was abandoned by its maintainer.
+> It's maintained here independently under its own name. Security and memory fixes are also ported from
+> [Grimmory](https://github.com/grimmory-tools/grimmory), another BookLore continuation. See [What's different](#-whats-different-from-booklore) below.
 
 ---
 
-## 🔀 What's Changed in This Fork
+## 🔀 What's Different from BookLore
 
 - **PostgreSQL instead of MariaDB.** The database layer, all schema migrations, and every Docker/Podman/Helm example have been
   ported from MariaDB to PostgreSQL.
 - **Native (non-Docker) install & deploy tooling.** `install.sh` sets up a full native install (Java, Node, PostgreSQL,
   systemd services, reverse proxy + TLS via Caddy or nginx/certbot) without requiring Docker. `deploy.sh` pulls and applies
-  code changes to an existing install.
-- **Local documentation archive.** The original docs site (`booklore.org/docs`) went offline along with the abandoned project;
-  a full local copy now lives at `/docs` in the app itself so in-app help links keep working.
+  code changes, and admins can update from inside the app.
+- **Metadata that survives bot checks.** Amazon and GoodReads pages are loaded in a headless browser on native installs,
+  with request spacing and cool-downs, so bulk metadata fetches keep working.
+- **Security hardening.** Books opened in the reader can't reach your login, login tokens are harder to misuse,
+  cover downloads can't be pointed at your own network, and several access-control gaps are closed.
+- **Lower memory use.** JVM settings that hand unused memory back to the system, plus fixes for leaks during scans and bulk jobs.
+- **Local documentation archive.** The original docs site went offline with the abandoned project; a full copy lives at
+  `/docs` in the app itself, so in-app help links keep working.
 
 ---
 
@@ -38,25 +44,25 @@ Organize, read, annotate, sync across devices, and share, all without relying on
 | | Feature | Description |
 |:---:|:---|:---|
 | 📚 | **Smart Shelves** | Custom and dynamic shelves that organize themselves with rule-based Magic Shelves, filters, and full-text search |
-| 🔍 | **Automatic Metadata** | Covers, descriptions, reviews, and ratings pulled from Google Books, Open Library, and Amazon, all editable |
-| 📖 | **Built-in Reader** | Open PDFs, EPUBs, and comics right in the browser with annotations, highlights, and reading progress |
+| 🔍 | **Automatic Metadata** | Covers, descriptions, series, and ratings pulled from Google Books, Open Library, Amazon, GoodReads and more, all editable |
+| 📖 | **Built-in Reader** | Open PDFs, EPUBs, comics and audiobooks right in the browser with annotations, highlights, and reading progress |
 | 🔄 | **Device Sync** | Connect your Kobo, use any OPDS-compatible app, or sync progress with KOReader. Your library follows you everywhere |
 | 👥 | **Multi-User Ready** | Individual shelves, progress, and preferences per user with local or OIDC authentication |
-| 📥 | **BookDrop** | Drop files into a watched folder and BookLore detects, enriches, and queues them for import automatically |
+| 📥 | **BookDrop** | Drop files into a watched folder and Trove detects, enriches, and queues them for import automatically |
 | 📧 | **One-Click Sharing** | Send any book to a Kindle, an email address, or a friend instantly |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Docker)
 
 All you need is [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 
 <details>
 <summary><strong>📦 Image Repositories</strong></summary>
 
-| Registry | Image                              |
-|----------|------------------------------------|
-| GitHub Container Registry | `ghcr.io/x2-consult/booklore` |
+| Registry | Image |
+|----------|-------|
+| GitHub Container Registry | `ghcr.io/x2-consult/trove` |
 
 </details>
 
@@ -71,15 +77,15 @@ APP_GROUP_ID=1000
 TZ=Etc/UTC
 
 # Database
-DATABASE_URL=jdbc:postgresql://postgres:5432/booklore
-DB_USER=booklore
-DB_PASSWORD=ChangeMe_BookLoreApp_2025!
+DATABASE_URL=jdbc:postgresql://postgres:5432/trove
+DB_USER=trove
+DB_PASSWORD=ChangeMe_TroveApp_2026!
 
 # Storage: LOCAL (default) or NETWORK (disables file operations, see Network Storage section below)
 DISK_TYPE=LOCAL
 
 # PostgreSQL
-POSTGRES_DB=booklore
+POSTGRES_DB=trove
 ```
 
 ### Step 2: Docker Compose
@@ -88,9 +94,9 @@ Create a `docker-compose.yml`:
 
 ```yaml
 services:
-  booklore:
-    image: ghcr.io/x2-consult/booklore:latest
-    container_name: booklore
+  trove:
+    image: ghcr.io/x2-consult/trove:latest
+    container_name: trove
     environment:
       - USER_ID=${APP_USER_ID}
       - GROUP_ID=${APP_GROUP_ID}
@@ -142,20 +148,52 @@ docker compose up -d
 
 Open **http://localhost:6060**, create your admin account, and start building your library.
 
+More examples: [Podman Quadlets](example-podman/), [Helm chart](example-chart/).
+
+---
+
+## 🖥️ Native Install (no Docker)
+
+On an Ubuntu or Debian server with systemd:
+
+```bash
+git clone https://github.com/X2-Consult/trove.git
+cd trove
+./install.sh
+```
+
+The installer sets up Java 25, PostgreSQL, a `trove` database, the `trove` systemd service and, optionally, a reverse
+proxy with a Let's Encrypt certificate. The app lives in `/opt/trove`, its data in `/srv/trove`, and its settings in
+`/etc/trove/trove.env`. To update later, run `./deploy.sh` from `/opt/trove`, or use **Update now** in the app.
+
+---
+
+## 🔁 Moving from BookLore
+
+- **Native installs** (set up with BookLore's `install.sh`): run `scripts/migrate-to-trove.sh --dry-run` to see what will change,
+  then `scripts/migrate-to-trove.sh`. It moves the checkout, data, settings, database and service over to the Trove names,
+  keeps your library, users and reading progress, and can roll everything back. Until you migrate, `deploy.sh` keeps updating
+  the install under its old names.
+- **Docker**: switch the image to `ghcr.io/x2-consult/trove` and keep your existing volumes and database settings. If your
+  compose file never set `DATABASE_URL` or `DATABASE_USERNAME`, add `DATABASE_NAME=booklore` and `DATABASE_USERNAME=booklore`,
+  because the defaults are now `trove`.
+- Kobo and KOReader devices keep syncing without re-pairing, and existing logins stay valid.
+- `BOOKLORE_*` environment variables still work; their `TROVE_*` names take precedence.
+
 ---
 
 ## ⚠️ Network Storage (NAS / NFS / SMB / CIFS)
 
 > [!CAUTION]
-> BookLore's file operations (metadata writing, file renaming, file organization) are built for **local file systems only**. Network-attached storage (NAS, NFS, SMB/CIFS mounts, cloud-backed FUSE, etc.) is **unsupported and untested**. Mount options, network latency, caching, and filesystem semantics are all outside BookLore's control and can cause silent file corruption, incomplete writes, missing files, and other unpredictable behavior. **Issues related to network storage will be closed without investigation.**
+> Trove's file operations (metadata writing, file renaming, file organization) are built for **local file systems only**. Network-attached storage (NAS, NFS, SMB/CIFS mounts, cloud-backed FUSE, etc.) is **unsupported and untested**. Mount options, network latency, caching, and filesystem semantics are all outside Trove's control and can cause silent file corruption, incomplete writes, missing files, and other unpredictable behavior. **Issues related to network storage will be closed without investigation.**
 
-If your book files live on network storage, set `DISK_TYPE=NETWORK` in your `.env` file. This puts BookLore into **network storage mode**, which disables all file write and reorganization features. Metadata is stored in the database only and your files are never modified. This is the only supported configuration for network storage.
+If your book files live on network storage, set `DISK_TYPE=NETWORK` in your `.env` file. This puts Trove into **network storage mode**, which disables all file write and reorganization features. Metadata is stored in the database only and your files are never modified. This is the only supported configuration for network storage.
 
 ---
 
 ## 📥 BookDrop: Zero-Effort Import
 
-Drop book files into a folder. BookLore picks them up, pulls metadata, and queues everything for your review.
+Drop book files into a folder. Trove picks them up, pulls metadata, and queues everything for your review.
 
 ```mermaid
 graph LR
@@ -166,9 +204,9 @@ graph LR
 
 | Step | What Happens |
 |:---|:---|
-| 1. **Watch** | BookLore monitors the BookDrop folder around the clock |
+| 1. **Watch** | Trove monitors the BookDrop folder around the clock |
 | 2. **Detect** | New files are picked up and parsed automatically |
-| 3. **Enrich** | Metadata is fetched from Google Books and Open Library |
+| 3. **Enrich** | Metadata is fetched from your configured providers |
 | 4. **Import** | You review, tweak if needed, and add to your library |
 
 Mount the volume in `docker-compose.yml`:
@@ -180,32 +218,15 @@ volumes:
 
 ---
 
-## 💜 Support This Fork
+## 💜 Support Trove
 
-BookLore is free, open source, and built with care. Here's how you can give back:
+Trove is free, open source, and built with care. Here's how you can give back:
 
 | Action | How |
 |:---|:---|
-| ⭐ **Star this repo** | It's the simplest way to help others find this fork |
+| ⭐ **Star this repo** | It's the simplest way to help others find Trove |
 | ☕ **Buy me a coffee** | [Ko-fi](https://ko-fi.com/xspader) — a one-time tip to fuel continued development |
-| 📢 **Tell someone** | Share BookLore with a friend, a subreddit, or your local book club |
-
----
-
-## 🌟 Sponsors & Partners
-
-<table>
-<tr>
-
-<a href="https://jb.gg/OpenSource">
-  <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg" alt="JetBrains" height="40" />
-</a>
-
-
-</td>
-</tr>
-</table>
-</div>
+| 📢 **Tell someone** | Share Trove with a friend, a subreddit, or your local book club |
 
 ---
 
@@ -215,7 +236,7 @@ BookLore is free, open source, and built with care. Here's how you can give back
 
 **GNU Affero General Public License v3.0**
 
-Copyright 2024–2026 BookLore
+Trove is based on BookLore, © 2024–2026 the BookLore authors. Trove changes © 2026 the Trove contributors.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/agpl-3.0.html)
 

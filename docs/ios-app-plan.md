@@ -1,13 +1,13 @@
-# BookLore iOS App — Scope & Plan
+# Trove iOS App — Scope & Plan
 
 Status: **superseded, not started.** See
 `bookshelf` repo's `docs/companion-reader-app-plan.md` (scoped
 2026-08-07) for the direction actually chosen: a fork of
-`advplyr/audiobookshelf-app`, generic OPDS (not BookLore's native API),
+`advplyr/audiobookshelf-app`, generic OPDS (not Trove's native API),
 cross-platform iOS+Android from one codebase (not iOS-only), and
-Bookshelf-branded rather than BookLore-branded. The `audiobookshelf-app`
+Bookshelf-branded rather than Trove-branded. The `audiobookshelf-app`
 fork evaluation below carried forward into that plan; the native
-SwiftUI/Readium direction and the BookLore-native-API choice did not.
+SwiftUI/Readium direction and the Trove-native-API choice did not.
 
 Original scoping notes kept below for reference (scoped 2026-08-02).
 
@@ -26,7 +26,7 @@ existing open-source OPDS/self-hosted-library iOS client (or an existing
 Komga/Kavita/Calibre-Web client) close enough to fork and adapt, which
 would be much faster than building from zero. Check:
 - GitHub search for OPDS/Komga/Kavita Swift/SwiftUI iOS clients
-- Whether any existing client's architecture would accept a BookLore
+- Whether any existing client's architecture would accept a Trove
   backend with reasonable changes (auth flow, API shape)
 
 If nothing suitable turns up, proceed with the from-scratch plan below.
@@ -35,7 +35,7 @@ If nothing suitable turns up, proceed with the from-scratch plan below.
 
 - **Stack**: NuxtJS + Capacitor (web app in a native shell/WebView), not
   native Swift. iOS + Android from one codebase.
-- **License**: GPL-3.0. No conflict with BookLore's AGPL-3.0 — AGPL's
+- **License**: GPL-3.0. No conflict with Trove's AGPL-3.0 — AGPL's
   network-copyleft clause applies to the *server*, not to client apps that
   merely talk to it over the API (same pattern as GitLab/Mastodon mobile
   clients). A fork would just need to stay GPL-3.0 itself.
@@ -50,7 +50,7 @@ If nothing suitable turns up, proceed with the from-scratch plan below.
   start (mature app to adapt vs. building from zero) but WebView-based
   rather than fully native feel/performance, and still requires ripping
   out and rebuilding the entire API layer (auth, book/library models,
-  progress sync calls) to match BookLore's endpoints instead of
+  progress sync calls) to match Trove's endpoints instead of
   Audiobookshelf's — a real refactor, just smaller than from-scratch.
 
 **Decision not yet made** — pick this up when back from the trip.
@@ -64,11 +64,11 @@ If nothing suitable turns up, proceed with the from-scratch plan below.
   public submission regardless.
 - **v1 (MVP) scope**: reading-focused only. No upload-from-phone, no
   comics/audiobooks/shelves in v1 — just browse library → read → progress
-  syncs back to BookLore.
+  syncs back to Trove.
 
 ## Architecture
 
-- **Data layer**: BookLore's own JWT REST API (the same one the Angular
+- **Data layer**: Trove's own JWT REST API (the same one the Angular
   frontend uses), **not OPDS**. OPDS is a good fit for generic third-party
   readers (KOReader etc.) but is a limited Atom-feed protocol; the native
   API gives structured JSON for libraries/books/covers/progress, which is

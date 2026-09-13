@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>📥 Bookdrop | BookLore Docs (archived)</title>
+<title>📥 Bookdrop | Trove Docs</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root { color-scheme: light dark; }
@@ -28,7 +28,7 @@
 </head>
 <body>
 <div class="archive-notice">
-  📦 This is a local archived copy of the BookLore documentation (booklore.org/docs), captured
+  📦 Trove started as BookLore. These pages are adapted from the BookLore documentation (booklore.org/docs), captured
   20260305164130 via the Wayback Machine after the original site went offline.
   <a href="./index.html">Back to docs index</a>
 </div>
@@ -38,7 +38,7 @@
 <div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewbox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"></path></svg></span>Network Storage Limitation</div><div class="admonitionContent_BuS1"><p>Bookdrop may not reliably detect new files on network-mounted storage (e.g., NFS or SMB). Many network filesystems do not propagate real-time filesystem events to the host process, so Bookdrop may not notice newly added files.</p><p><strong>If Bookdrop doesn't react when you add files:</strong></p><ul>
 <li>Use a local folder instead</li>
 <li>Adjust mount options to enable notification support</li>
-<li>Restart Booklore to trigger a manual rescan</li>
+<li>Restart Trove to trigger a manual rescan</li>
 <li>Open the Bookdrop UI and click the manual "Refresh" button to force a reload</li>
 <li>You can also enable periodic scanning for the Bookdrop folder in <strong>Settings → Tasks</strong>.</li>
 </ul></div></div>
@@ -47,7 +47,7 @@
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="-getting-started">🚀 Getting Started<a href="#-getting-started" class="hash-link" aria-label="Direct link to 🚀 Getting Started" title="Direct link to 🚀 Getting Started">​</a></h2>
 <p>Mount a local directory as your Bookdrop path in <code>docker-compose.yml</code>:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-yaml codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token key atrule">volumes</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> /path/to/bookdrop</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">/bookdrop</span><br></span></code></pre></div></div>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewbox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"></path></svg></span>Permissions</div><div class="admonitionContent_BuS1"><p>Ensure the Bookdrop folder has proper read/write permissions for the BookLore container.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewbox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z"></path></svg></span>Permissions</div><div class="admonitionContent_BuS1"><p>Ensure the Bookdrop folder has proper read/write permissions for the Trove container.</p></div></div>
 <p>Drop supported files (PDF, EPUB, CBZ, CBR, CB7) into this folder. You can drop entire folders of books at once.</p>
 <p><img decoding="async" loading="lazy" alt="Bookdrop Folder" src="https://web.archive.org/web/20260309184052im_/https://booklore.org/assets/images/bookdrop-folder-a202a82b20c31eb9b4e21541b60c3111.jpg" width="1200" height="715" class="img_ev3q"></p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="monitoring-progress">Monitoring Progress<a href="#monitoring-progress" class="hash-link" aria-label="Direct link to Monitoring Progress" title="Direct link to Monitoring Progress">​</a></h3>
