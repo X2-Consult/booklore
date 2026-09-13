@@ -91,6 +91,22 @@ class JwtUtilsTest {
     }
 
     @Test
+    void tokensFromBeforeTheRenameAreStillAccepted() {
+        Instant now = Instant.now();
+        String legacy = Jwts.builder()
+                .issuer("booklore")
+                .subject("reader")
+                .claim(JwtUtils.TOKEN_USE_CLAIM, JwtUtils.TOKEN_USE_ACCESS)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusMillis(60_000)))
+                .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS256)
+                .compact();
+
+        assertThat(JwtUtils.ISSUER).isEqualTo("trove");
+        assertThat(jwtUtils.validateAccessToken(legacy)).isTrue();
+    }
+
+    @Test
     void tamperedTokenIsRejected() {
         String token = jwtUtils.generateAccessToken(user);
         String tampered = token.substring(0, token.length() - 2) + (token.endsWith("AA") ? "BB" : "AA");

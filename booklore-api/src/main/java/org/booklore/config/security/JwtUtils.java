@@ -37,7 +37,9 @@ public class JwtUtils {
 
     // Access and refresh tokens are otherwise signed identically, so the claim is what stops a refresh
     // token (30 days, revocable only in the database) being presented as a bearer token.
-    static final String ISSUER = "booklore";
+    static final String ISSUER = "trove";
+    // Tokens issued before the rename to Trove; accepted so nobody is signed out by the upgrade.
+    static final String LEGACY_ISSUER = "booklore";
 
     static final String TOKEN_USE_CLAIM = "token_use";
     static final String TOKEN_USE_ACCESS = "access";
@@ -128,7 +130,7 @@ public class JwtUtils {
         // Reject a token minted for something else with the same key. Tokens from before the issuer
         // claim have none and still pass; they're all expired 30 days after this ships.
         String issuer = claims.getIssuer();
-        if (issuer != null && !ISSUER.equals(issuer)) {
+        if (issuer != null && !ISSUER.equals(issuer) && !LEGACY_ISSUER.equals(issuer)) {
             throw new JwtException("Unexpected token issuer: " + issuer);
         }
         return claims;
