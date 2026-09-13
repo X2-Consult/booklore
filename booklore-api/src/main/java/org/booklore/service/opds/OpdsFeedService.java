@@ -716,7 +716,7 @@ public class OpdsFeedService {
         if (series != null && !series.isBlank()) {
             return series + " series";
         }
-        return "Booklore Catalog";
+        return "Trove Catalog";
     }
 
     private String determineFeedId(Long libraryId, Set<Long> shelfIds, Long magicShelfId, String author, String series) {

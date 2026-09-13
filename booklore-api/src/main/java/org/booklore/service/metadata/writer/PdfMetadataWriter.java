@@ -259,7 +259,7 @@ public class PdfMetadataWriter implements MetadataWriter {
         xmpBasicDescription.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xmp", "http://ns.adobe.com/xap/1.0/");
         xmpBasicDescription.setAttributeNS("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf:about", "");
 
-        xmpBasicDescription.appendChild(createXmpElement(doc, "xmp:CreatorTool", "Booklore"));
+        xmpBasicDescription.appendChild(createXmpElement(doc, "xmp:CreatorTool", "Trove"));
         // Use ISO-8601 format for current timestamps
         String nowIso = ZonedDateTime.now().format(java.time.format.DateTimeFormatter.ISO_INSTANT);
         xmpBasicDescription.appendChild(createXmpElement(doc, "xmp:MetadataDate", nowIso));

@@ -26,7 +26,7 @@ public class VersionService {
     private static final int MAX_RELEASES = 15;
     private static final RestClient REST_CLIENT = RestClient.builder()
             .defaultHeader("Accept", "application/vnd.github+json")
-            .defaultHeader("User-Agent", "BookLore-Version-Checker")
+            .defaultHeader("User-Agent", "Trove-Version-Checker")
             .build();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

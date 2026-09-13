@@ -54,7 +54,7 @@ public class SystemUpdateService {
             throw ApiError.GENERIC_BAD_REQUEST.createException("In-app updates are not available on this deployment.");
         }
         if (!versionService.isNewerVersionAvailable()) {
-            throw ApiError.GENERIC_BAD_REQUEST.createException("BookLore is already up to date.");
+            throw ApiError.GENERIC_BAD_REQUEST.createException("Trove is already up to date.");
         }
         if (isInProgress()) {
             throw ApiError.CONFLICT.createException("An update is already in progress.");

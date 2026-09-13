@@ -79,7 +79,7 @@ public class KoreaderService {
                 .document(bookHash)
                 .progress(progress.getKoreaderProgress())
                 .percentage(progress.getKoreaderProgressPercent())
-                .device("BookLore")
+                .device("Trove")  // display name KOReader shows; device_id stays the identity devices compare
                 .device_id("BookLore")
                 .build();
     }
@@ -123,7 +123,7 @@ public class KoreaderService {
                 .document(bookHash)
                 .progress(koreaderStyleProgress)
                 .percentage(fractionOf(fileProgress.getProgressPercent()))
-                .device("BookLore")
+                .device("Trove")  // display name KOReader shows; device_id stays the identity devices compare
                 .device_id("BookLore")
                 .build();
     }

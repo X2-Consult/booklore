@@ -203,7 +203,7 @@ public enum UserPermission {
             UserPermissionsEntity::setPermissionBulkLockUnlockMetadata
     ),
     CAN_BULK_RESET_BOOKLORE_READ_PROGRESS(
-            "Bulk reset Booklore read progress",
+            "Bulk reset Trove read progress",
             BookLoreUser.UserPermissions::isCanBulkResetBookloreReadProgress,
             BookLoreUser.UserPermissions::setCanBulkResetBookloreReadProgress,
             UserUpdateRequest.Permissions::isCanBulkResetBookloreReadProgress,

@@ -9,7 +9,7 @@ public enum TaskType {
             false,
             false,
             "Refresh Metadata",
-            "Re-reads book information (title, author, cover, etc.) from your files and updates the Booklore database."
+            "Re-reads book information (title, author, cover, etc.) from your files and updates the Trove database."
     ),
     UPDATE_BOOK_RECOMMENDATIONS(
             false,

@@ -360,7 +360,7 @@ class PdfMetadataWriterTest {
     }
 
     @Test
-    void saveMetadata_creatorTool_isBooklore() throws Exception {
+    void saveMetadata_creatorTool_isTrove() throws Exception {
         File pdf = createEmptyPdf("creator.pdf");
 
         BookMetadataEntity meta = createBasicMetadata();
@@ -368,7 +368,7 @@ class PdfMetadataWriterTest {
         writer.saveMetadataToFile(pdf, meta, null, null);
 
         String xmpContent = readXmpContent(pdf);
-        assertTrue(xmpContent.contains("<xmp:CreatorTool>Booklore</xmp:CreatorTool>"));
+        assertTrue(xmpContent.contains("<xmp:CreatorTool>Trove</xmp:CreatorTool>"));
     }
 
     // ========== Helper Methods ==========
