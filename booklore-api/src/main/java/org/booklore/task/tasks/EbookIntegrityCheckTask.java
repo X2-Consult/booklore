@@ -14,31 +14,29 @@ import org.booklore.model.enums.UserPermission;
 import org.booklore.repository.BookFileRepository;
 import org.booklore.service.audit.AuditService;
 import org.booklore.task.TaskStatus;
-import org.booklore.util.ArchiveUtils;
+import org.booklore.util.BookFileIntegrity;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.stream.Stream;
 
 /**
- * Verifies every EPUB/CBZ file is a structurally sound zip archive by reading each entry
- * fully and letting java.util.zip validate its CRC as it goes - the same depth of check as
- * `unzip -t`, well beyond just confirming the file starts with a valid zip header. A file can
- * pass a shallow header check while still being corrupted deeper in the archive (see the
- * Diddly Squat / Camping With Her Step Dad incidents this task exists to catch earlier).
- * Read-only: never modifies a file, only reports.
+ * Checks every book file with {@link BookFileIntegrity}: each entry's checksum in EPUB/CBZ/CB7/CBR
+ * archives, the end marker and page tree of PDFs, the box structure of M4B/M4A audiobooks and the
+ * frames of MP3s - well beyond confirming the file starts with a valid header. A file can pass a
+ * shallow header check while still being corrupted deeper in (see the Diddly Squat / Camping With
+ * Her Step Dad incidents this task exists to catch earlier). Folder-based audiobooks have each file
+ * checked. Formats with no deeper check (MOBI, AZW3) are skipped. Read-only: it only reports.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class EbookIntegrityCheckTask implements Task {
 
-    // CBX covers cbz/cbr/cb7, but only cbz is actually a zip archive - filtered on archiveType below.
-    private static final List<BookFileType> CANDIDATE_TYPES = List.of(BookFileType.EPUB, BookFileType.CBX);
-    private static final int BUFFER_SIZE = 64 * 1024;
+    private static final List<BookFileType> CANDIDATE_TYPES = List.of(BookFileType.values());
 
     private final BookFileRepository bookFileRepository;
     private final AuditService auditService;
@@ -65,11 +63,11 @@ public class EbookIntegrityCheckTask implements Task {
         try {
             List<BookFileEntity> files = bookFileRepository.findAllWithBookAndLibraryPathByBookTypeIn(CANDIDATE_TYPES);
             for (BookFileEntity bookFile : files) {
-                if (bookFile.getBookType() == BookFileType.CBX && bookFile.getArchiveType() != ArchiveUtils.ArchiveType.ZIP) {
+                String failureReason = checkIntegrity(bookFile);
+                if (failureReason == SKIPPED) {
                     continue;
                 }
                 checked++;
-                String failureReason = checkIntegrity(bookFile);
                 if (failureReason != null) {
                     bad++;
                     reportBadFile(bookFile, failureReason);
@@ -88,39 +86,42 @@ public class EbookIntegrityCheckTask implements Task {
         return builder.build();
     }
 
+    private static final String SKIPPED = "skipped";
+
     /**
-     * @return null if the file is intact, otherwise a short description of what went wrong.
+     * @return null if the file is intact, {@link #SKIPPED} if its format has no deeper check,
+     * otherwise a short description of what went wrong.
      */
     private String checkIntegrity(BookFileEntity bookFile) {
-        File file;
+        Path path;
         try {
-            file = bookFile.getFullFilePath().toFile();
+            path = bookFile.getFullFilePath();
         } catch (Exception e) {
             return "could not resolve file path: " + e.getMessage();
         }
 
-        if (!file.exists()) {
+        if (!Files.exists(path)) {
             return "file missing on disk";
         }
+        if (!Files.isDirectory(path)) {
+            return BookFileIntegrity.isCheckable(path) ? BookFileIntegrity.check(path) : SKIPPED;
+        }
 
-        try (ZipFile zipFile = new ZipFile(file)) {
-            byte[] buffer = new byte[BUFFER_SIZE];
-            var entries = zipFile.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (entry.isDirectory()) {
-                    continue;
-                }
-                try (var in = zipFile.getInputStream(entry)) {
-                    while (in.read(buffer) != -1) {
-                        // Reading each entry fully forces CRC validation; java.util.zip
-                        // throws a ZipException on mismatch as the bytes are consumed.
-                    }
+        // Folder-based audiobook: check each file that has a deeper check.
+        try (Stream<Path> files = Files.walk(path)) {
+            List<Path> checkable = files.filter(Files::isRegularFile).filter(BookFileIntegrity::isCheckable).sorted().toList();
+            if (checkable.isEmpty()) {
+                return SKIPPED;
+            }
+            for (Path file : checkable) {
+                String problem = BookFileIntegrity.check(file);
+                if (problem != null) {
+                    return path.relativize(file) + ": " + problem;
                 }
             }
             return null;
         } catch (Exception e) {
-            return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "could not read folder: " + e.getMessage();
         }
     }
 

@@ -64,8 +64,8 @@ public enum TaskType {
             true,
             true,
             false,
-            "Check EBook Integrity",
-            "Verifies EPUB and CBZ files aren't corrupted (checks every entry's checksum, not just the file header) and logs any that need to be re-imported."
+            "Check Book File Integrity",
+            "Verifies book files aren't corrupted - EPUB, CBZ, CB7, CBR, PDF, M4B/M4A and MP3 - by checking every entry's checksum or the file's structure, not just its header, and logs any that need to be re-imported."
     );
 
     @Getter

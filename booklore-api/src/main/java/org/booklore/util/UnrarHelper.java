@@ -126,6 +126,26 @@ public class UnrarHelper {
         }
     }
 
+    /** Runs {@code unrar t}, which reads every entry and checks its CRC. True if the archive is intact. */
+    public static boolean testArchive(Path rarPath) throws IOException {
+        ProcessBuilder pb = new ProcessBuilder(getUnrarBin(), "t", "-idq", rarPath.toAbsolutePath().toString());
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        try (InputStream is = process.getInputStream()) {
+            is.readAllBytes();
+        }
+        try {
+            if (!process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IOException("unrar test timed out for: " + rarPath);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("unrar test interrupted", e);
+        }
+        return process.exitValue() == 0;
+    }
+
     private static String getUnrarBin() {
         return EnvVars.getOrDefault("UNRAR_BIN", DEFAULT_UNRAR_BIN);
     }
