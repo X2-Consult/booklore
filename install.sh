@@ -216,7 +216,8 @@ Environment=JAVA_HOME=${JAVA_HOME_RESOLVED}
 Environment=PATH=${JAVA_HOME_RESOLVED}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=APP_PATH_CONFIG=${DATA_DIR}/config
 Environment=APP_BOOKDROP_FOLDER=${DATA_DIR}/bookdrop
-Environment=JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=50.0 -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact -XX:+UseCompactObjectHeaders -XX:InitialRAMPercentage=8.0 -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=48m -Xss512k -XX:CICompilerCount=2 -XX:MaxDirectMemorySize=256m -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:ShenandoahUncommitDelay=5000 -XX:ShenandoahGuaranteedGCInterval=30000 -XX:+ExitOnOutOfMemoryError
+# Quoted: unquoted, systemd splits the value at spaces and Java only receives the first flag.
+Environment="JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=50.0 -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact -XX:+UseCompactObjectHeaders -XX:InitialRAMPercentage=8.0 -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=48m -Xss512k -XX:CICompilerCount=2 -XX:MaxDirectMemorySize=256m -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:ShenandoahUncommitDelay=5000 -XX:ShenandoahGuaranteedGCInterval=30000 -XX:+ExitOnOutOfMemoryError"
 ExecStart=/bin/bash -c 'exec "${JAVA_HOME_RESOLVED}/bin/java" -jar "\$(ls -t ${REPO_DIR}/booklore-api/build/libs/booklore-api-*.jar | grep -v -- "-plain.jar" | head -1)" --spring.profiles.active=prod'
 Restart=on-failure
 RestartSec=5
