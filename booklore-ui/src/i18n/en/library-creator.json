@@ -13,6 +13,8 @@
     "addFolder": "Add folder",
     "emptyFoldersHint": "Add folders containing your book files",
     "folderStructureHint": "How files are grouped into books depends on your <a href='/docs/library/organization-modes.html' target='_blank' rel='noopener'>organization mode</a>.",
+    "networkShare": "Network share ({{filesystem}})",
+    "networkShareTooltip": "This folder is on a network share. Trove checks it for new books every minute, because shares don't announce changes, and writes files there with verified copies.",
     "options": "Options",
     "watchFolders": "Watch folders",
     "watchFoldersTooltip": "Automatically detect new books added to folders",

@@ -23,4 +23,5 @@ export interface Library {
 export interface LibraryPath {
   id?: number;
   path: string;
+  networkFilesystem?: string;
 }

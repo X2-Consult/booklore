@@ -15,4 +15,6 @@ public class LibraryPath {
     private Long id;
     private Long libraryId;
     private String path;
+    /** The filesystem type (nfs4, cifs, ...) when the folder is on a network share; absent for local disks. */
+    private String networkFilesystem;
 }

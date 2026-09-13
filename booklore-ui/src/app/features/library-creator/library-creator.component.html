@@ -101,6 +101,12 @@
                     <span class="folder-path" [pTooltip]="folder" tooltipPosition="top">
                       {{ folder }}
                     </span>
+                    @if (networkFilesystems[folder]; as filesystem) {
+                      <span class="folder-network" [pTooltip]="t('networkShareTooltip')" tooltipPosition="top">
+                        <i class="pi pi-server"></i>
+                        {{ t('networkShare', {filesystem}) }}
+                      </span>
+                    }
                   </div>
                   <button class="folder-remove" (click)="removeFolder(i)" type="button">
                     <i class="pi pi-times"></i>

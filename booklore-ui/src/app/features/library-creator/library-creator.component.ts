@@ -30,6 +30,8 @@ import {TranslocoDirective, TranslocoPipe, TranslocoService} from '@jsverse/tran
 export class LibraryCreatorComponent implements OnInit {
   chosenLibraryName: string = '';
   folders: string[] = [];
+  // Filesystem type (nfs4, cifs, ...) for saved folders the server found on a network share.
+  networkFilesystems: Record<string, string> = {};
   selectedIcon: IconSelection | null = null;
 
   mode!: string;
@@ -135,6 +137,9 @@ export class LibraryCreatorComponent implements OnInit {
         });
 
         this.folders = paths.map(path => path.path);
+        this.networkFilesystems = Object.fromEntries(
+          paths.filter(path => path.networkFilesystem).map(path => [path.path, path.networkFilesystem!])
+        );
       }
     }
   }
