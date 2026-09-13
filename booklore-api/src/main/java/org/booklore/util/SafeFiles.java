@@ -48,6 +48,10 @@ public final class SafeFiles {
     static final String TEMP_PREFIX = ".trove-";
     private static final int COPY_ATTEMPTS = 3;
     private static final int BUFFER_SIZE = 1024 * 1024;
+    private static final long RETRY_PAUSE_MILLIS = 2_000;
+    private static final long STALE_TEMP_MILLIS = 60 * 60 * 1000;
+    private static final int CASE_RENAME_ATTEMPTS = 5;
+    private static final long CASE_RENAME_RETRY_MILLIS = 1_200;
 
     private SafeFiles() {
     }
@@ -98,8 +102,12 @@ public final class SafeFiles {
         }
         Path parent = target.toAbsolutePath().getParent();
         Files.createDirectories(parent);
+        removeStaleTempFiles(parent);
         IOException lastFailure = null;
         for (int attempt = 1; attempt <= COPY_ATTEMPTS; attempt++) {
+            if (attempt > 1) {
+                pause(RETRY_PAUSE_MILLIS * (attempt - 1));
+            }
             Path temp = parent.resolve(TEMP_PREFIX + UUID.randomUUID().toString().substring(0, 8) + ".tmp");
             try {
                 String sourceHash = copyAndHash(source, temp);
@@ -119,7 +127,7 @@ public final class SafeFiles {
                 lastFailure = e;
                 log.warn("Copying {} to {} failed on attempt {}/{}: {}", source, target, attempt, COPY_ATTEMPTS, e.getMessage());
             } finally {
-                Files.deleteIfExists(temp);
+                deleteTempQuietly(temp);
             }
         }
         throw new IOException("Couldn't copy " + source + " to " + target + " after " + COPY_ATTEMPTS
@@ -137,6 +145,13 @@ public final class SafeFiles {
      * {@link #copy} and the source is deleted only once everything has arrived intact.
      */
     public static void move(Path source, Path target, boolean replaceExisting) throws IOException {
+        if (differsOnlyInCase(source, target)) {
+            if (!replaceExisting && Files.exists(target) && !Files.isSameFile(source, target)) {
+                throw new FileAlreadyExistsException(target.toString());
+            }
+            renameCase(source, target);
+            return;
+        }
         if (!replaceExisting && Files.exists(target)) {
             throw new FileAlreadyExistsException(target.toString());
         }
@@ -170,6 +185,50 @@ public final class SafeFiles {
      */
     public static void copyContents(Path source, Path dest) throws IOException {
         copyAndHash(source, dest);
+    }
+
+    private static boolean differsOnlyInCase(Path source, Path target) {
+        Path from = source.toAbsolutePath().normalize();
+        Path to = target.toAbsolutePath().normalize();
+        return !from.equals(to) && from.getParent() != null && from.getParent().equals(to.getParent())
+                && from.getFileName().toString().equalsIgnoreCase(to.getFileName().toString());
+    }
+
+    /**
+     * Changes only the case of a name. On a case-insensitive filesystem (SMB shares, macOS) the new
+     * name already resolves to the file itself, so a plain rename is treated as a no-op - by Java and
+     * by the kernel. It goes via a temporary name instead, and is checked against the directory
+     * listing: a lookup of the new name cached by the client (about a second on SMB) can still turn
+     * the second step into a no-op, in which case it waits and tries again. The file is never left
+     * under the temporary name: if it can't be renamed, it's put back.
+     */
+    private static void renameCase(Path source, Path target) throws IOException {
+        Path temp = source.resolveSibling(TEMP_PREFIX + UUID.randomUUID().toString().substring(0, 8) + ".rename");
+        Files.move(source, temp, StandardCopyOption.ATOMIC_MOVE);
+        for (int attempt = 1; attempt <= CASE_RENAME_ATTEMPTS; attempt++) {
+            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE);
+            if (isListed(target) && !isListed(temp)) {
+                return;
+            }
+            log.debug("Renaming {} to {} didn't take (cached lookup?), attempt {}/{}", temp, target, attempt, CASE_RENAME_ATTEMPTS);
+            try {
+                Thread.sleep(CASE_RENAME_RETRY_MILLIS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        Files.move(temp, source, StandardCopyOption.ATOMIC_MOVE);
+        throw new IOException("Couldn't rename " + source.getFileName() + " to " + target.getFileName() + "; left as it was");
+    }
+
+    // Whether the directory listing has exactly this name - the listing comes from the server, unlike
+    // lookups by name, which the client may answer from its cache.
+    private static boolean isListed(Path file) throws IOException {
+        String name = file.getFileName().toString();
+        try (Stream<Path> entries = Files.list(file.toAbsolutePath().getParent())) {
+            return entries.anyMatch(entry -> entry.getFileName().toString().equals(name));
+        }
     }
 
     private static void copyTree(Path source, Path target) throws IOException {
@@ -213,6 +272,49 @@ public final class SafeFiles {
             }
         }
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    // If the share is unreachable the temp file can't be removed now; it's swept up the next time
+    // something is written to that folder (removeStaleTempFiles). Never lets a cleanup failure hide
+    // the error that matters.
+    private static void deleteTempQuietly(Path temp) {
+        try {
+            Files.deleteIfExists(temp);
+        } catch (IOException e) {
+            log.warn("Couldn't remove the partial copy {} ({}); it will be cleaned up later", temp, e.getMessage());
+        }
+    }
+
+    /** Removes temp files that an interrupted write left in {@code folder} more than an hour ago. */
+    static void removeStaleTempFiles(Path folder) {
+        long cutoff = System.currentTimeMillis() - STALE_TEMP_MILLIS;
+        try (Stream<Path> entries = Files.list(folder)) {
+            entries.filter(path -> {
+                        String name = path.getFileName().toString();
+                        return name.startsWith(TEMP_PREFIX) && (name.endsWith(".tmp") || name.endsWith(".rename"));
+                    })
+                    .forEach(path -> {
+                        try {
+                            if (Files.getLastModifiedTime(path).toMillis() < cutoff && Files.isRegularFile(path)) {
+                                Files.delete(path);
+                                log.info("Removed {} left behind by an interrupted write", path);
+                            }
+                        } catch (IOException e) {
+                            log.debug("Couldn't remove stale temp file {}: {}", path, e.getMessage());
+                        }
+                    });
+        } catch (IOException e) {
+            log.debug("Couldn't check {} for stale temp files: {}", folder, e.getMessage());
+        }
+    }
+
+    private static void pause(long millis) throws IOException {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while retrying a copy", e);
+        }
     }
 
     private static void renameIntoPlace(Path temp, Path target) throws IOException {

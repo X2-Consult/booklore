@@ -1332,4 +1332,32 @@ class PathPatternResolverTest {
         // This assertion ensures the path is relative (does not start with /)
         assertFalse(result.startsWith("/"), "Result should not start with slash: " + result);
     }
+
+    @Test
+    @DisplayName("Original file names kept via {currentFilename} lose characters SMB shares reject")
+    void currentFilenameIsMadePortable() {
+        BookMetadata metadata = BookMetadata.builder().title("Dune").build();
+
+        String result = PathPatternResolver.resolvePattern(metadata, "{authors}/{currentFilename}", "Dune: Part <1>?.epub");
+
+        assertEquals("Dune Part 1.epub", result.substring(result.lastIndexOf('/') + 1));
+    }
+
+    @Test
+    @DisplayName("Path components never end in a space")
+    void trailingSpacesAreRemovedFromEveryComponent() {
+        BookMetadata metadata = BookMetadata.builder().title("Dune").seriesName("Dune Chronicles").build();
+
+        String result = PathPatternResolver.resolvePattern(metadata, "{series} /{title}.{extension}", "x.epub");
+
+        assertEquals("Dune Chronicles/Dune.epub", result);
+    }
+
+    @Test
+    @DisplayName("Windows device names get a suffix, extension or not")
+    void reservedDeviceNamesAreAvoided() {
+        assertEquals("CON_.epub", PathPatternResolver.resolvePattern(BookMetadata.builder().title("CON").build(), "{title}.{extension}", "x.epub"));
+        assertEquals("Aux_.epub", PathPatternResolver.resolvePattern(BookMetadata.builder().title("Aux").build(), "{title}", "x.epub"));
+        assertEquals("Console.epub", PathPatternResolver.resolvePattern(BookMetadata.builder().title("Console").build(), "{title}.{extension}", "x.epub"));
+    }
 }

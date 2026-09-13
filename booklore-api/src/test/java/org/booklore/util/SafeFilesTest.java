@@ -139,4 +139,19 @@ class SafeFilesTest {
             return files.filter(p -> p.getFileName().toString().startsWith(SafeFiles.TEMP_PREFIX)).count();
         }
     }
+
+    @Test
+    void tempFilesLeftByAnInterruptedWriteAreSweptUpLater() throws IOException {
+        Path stale = Files.writeString(dir.resolve(".trove-deadbeef.tmp"), "partial copy from yesterday");
+        Files.setLastModifiedTime(stale, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - 2 * 60 * 60 * 1000));
+        Path recent = Files.writeString(dir.resolve(".trove-cafef00d.tmp"), "another copy still in progress");
+        Path unrelated = Files.writeString(dir.resolve(".hidden-notes.tmp"), "not ours");
+        Files.setLastModifiedTime(unrelated, java.nio.file.attribute.FileTime.fromMillis(0));
+
+        SafeFiles.copy(Files.writeString(dir.resolve("source.epub"), "book"), dir.resolve("book.epub"));
+
+        assertThat(stale).doesNotExist();
+        assertThat(recent).exists();
+        assertThat(unrelated).exists();
+    }
 }

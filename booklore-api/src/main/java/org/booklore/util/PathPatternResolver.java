@@ -35,6 +35,8 @@ public class PathPatternResolver {
     private final Pattern MODIFIER_PLACEHOLDER_PATTERN = Pattern.compile("\\{([^}:]+)(?::([^}]+))?}");
     private final Pattern COMMA_SPACE_PATTERN = Pattern.compile(", ");
     private final Pattern SLASH_PATTERN = Pattern.compile("/");
+    private final Pattern NON_PORTABLE_CHARS_PATTERN = Pattern.compile("[\\\\:*?\"<>|\\p{Cntrl}]");
+    private final Pattern RESERVED_NAME_PATTERN = Pattern.compile("(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\\..*)?$");
 
     public String resolvePattern(BookEntity book, String pattern) {
         BookFileEntity primaryFile = book.getPrimaryBookFile();
@@ -364,6 +366,10 @@ public class PathPatternResolver {
             if (component == null || component.isEmpty()) {
                 continue;
             }
+            component = portableComponent(component);
+            if (component.isEmpty()) {
+                continue;
+            }
 
             boolean isLastComponent = (i == components.length - 1);
 
@@ -382,11 +388,29 @@ public class PathPatternResolver {
                 }
             }
 
+            component = component.stripTrailing();
+            if (component.isEmpty()) {
+                continue;
+            }
+
             if (!first) result.append("/");
             result.append(component);
             first = false;
         }
         return result.toString();
+    }
+
+    // Windows and SMB shares reject these characters, names ending in a space, and device names such
+    // as CON or LPT1 (with any extension). Applied to every path component - including original file
+    // names kept via {currentFilename}, which aren't sanitised anywhere else - so a library can live on,
+    // or later move to, a share.
+    private String portableComponent(String component) {
+        String cleaned = NON_PORTABLE_CHARS_PATTERN.matcher(component).replaceAll("").stripTrailing();
+        Matcher reserved = RESERVED_NAME_PATTERN.matcher(cleaned);
+        if (reserved.matches()) {
+            cleaned = reserved.group(1) + "_" + (reserved.group(2) != null ? reserved.group(2) : "");
+        }
+        return cleaned;
     }
 
     public String truncateFilenameWithExtension(String filename) {
