@@ -1,3 +1,4 @@
+import {TroveMarkComponent} from './shared/components/trove-mark/trove-mark.component';
 import {Component, inject, OnDestroy, OnInit} from '@angular/core';
 import {RxStompService} from './shared/websocket/rx-stomp.service';
 import {BookService} from './features/book/service/book.service';
@@ -27,7 +28,7 @@ import {SystemUpdateService} from './shared/service/system-update.service';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   standalone: true,
-  imports: [ConfirmDialog, Toast, RouterOutlet, TranslocoDirective, TranslocoPipe]
+  imports: [ConfirmDialog, Toast, RouterOutlet, TranslocoDirective, TranslocoPipe, TroveMarkComponent]
 })
 export class AppComponent implements OnInit, OnDestroy {
 

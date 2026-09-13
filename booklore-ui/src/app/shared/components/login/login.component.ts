@@ -1,3 +1,4 @@
+import {TroveMarkComponent} from '../trove-mark/trove-mark.component';
 import {Component, inject, OnInit} from '@angular/core';
 import {AuthService} from '../../service/auth.service';
 import {ActivatedRoute, Router} from '@angular/router';
@@ -15,6 +16,7 @@ import {OidcService} from '../../../core/security/oidc.service';
 @Component({
   selector: 'app-login',
   imports: [
+    TroveMarkComponent,
     FormsModule,
     Password,
     Button,

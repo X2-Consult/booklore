@@ -1,10 +1,16 @@
 {
-  "name": "booklore",
-  "short_name": "booklore",
+  "name": "Trove",
+  "short_name": "Trove",
+  "description": "Your library. Your server. Your books.",
   "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone", "browser"],
+  "display_override": [
+    "fullscreen",
+    "standalone",
+    "browser"
+  ],
   "scope": "./",
   "start_url": "./",
+  "background_color": "#0f1a23",
   "icons": [
     {
       "src": "icons/icon-72x72.png",

@@ -1,3 +1,4 @@
+import {TroveMarkComponent} from '../../../components/trove-mark/trove-mark.component';
 import {Component, ElementRef, OnDestroy, ViewChild} from '@angular/core';
 import {MenuItem} from 'primeng/api';
 import {LayoutService} from '../layout-main/service/app.layout.service';
@@ -36,6 +37,7 @@ import {SUPPORT_ANIMATION_KEY} from '../../../../features/settings/global-prefer
   styleUrls: ['./app.topbar.component.scss'],
   standalone: true,
   imports: [
+    TroveMarkComponent,
     RouterLink,
     TooltipModule,
     FormsModule,

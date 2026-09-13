@@ -1,3 +1,4 @@
+import {TroveMarkComponent} from '../trove-mark/trove-mark.component';
 import {Component, inject} from '@angular/core';
 import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Router} from '@angular/router';
@@ -14,6 +15,7 @@ import {TranslocoDirective, TranslocoService} from '@jsverse/transloco';
   styleUrls: ['./setup.component.scss'],
   standalone: true,
   imports: [
+    TroveMarkComponent,
     ReactiveFormsModule,
     InputText,
     Button,
