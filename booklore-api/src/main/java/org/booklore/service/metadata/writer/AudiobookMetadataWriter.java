@@ -11,6 +11,7 @@ import org.booklore.model.entity.BookMetadataEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.service.appsettings.AppSettingService;
 import org.booklore.util.FileService;
+import org.booklore.util.SafeFiles;
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
@@ -23,7 +24,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -52,14 +52,6 @@ public class AudiobookMetadataWriter implements MetadataWriter {
         }
 
         if (!shouldSaveMetadataToFile(audioFile)) {
-            return;
-        }
-
-        File backupFile = new File(audioFile.getParentFile(), audioFile.getName() + ".bak");
-        try {
-            Files.copy(audioFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            log.warn("Failed to create backup of audiobook {}: {}", audioFile.getName(), ex.getMessage());
             return;
         }
 
@@ -140,7 +132,14 @@ public class AudiobookMetadataWriter implements MetadataWriter {
             }
 
             if (hasChanges[0]) {
-                f.commit();
+                // The tags are committed to a local copy, which is checked and swapped in with
+                // SafeFiles, so the original is never edited in place.
+                SafeFiles.replace(audioFile.toPath(), local -> {
+                    SafeFiles.copyContents(audioFile.toPath(), local);
+                    f.setFile(local.toFile());
+                    f.commit();
+                    return true;
+                });
                 log.info("Metadata updated in audiobook: {}", audioFile.getName());
             } else {
                 log.debug("No changes detected. Skipping audiobook write for: {}", audioFile.getName());
@@ -148,22 +147,6 @@ public class AudiobookMetadataWriter implements MetadataWriter {
 
         } catch (Exception e) {
             log.warn("Failed to write metadata to audiobook file {}: {}", audioFile.getName(), e.getMessage(), e);
-            if (backupFile.exists()) {
-                try {
-                    Files.copy(backupFile.toPath(), audioFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    log.info("Restored audiobook from backup: {}", audioFile.getName());
-                } catch (IOException io) {
-                    log.error("Failed to restore audiobook from backup for {}: {}", audioFile.getName(), io.getMessage(), io);
-                }
-            }
-        } finally {
-            if (backupFile.exists()) {
-                try {
-                    Files.delete(backupFile.toPath());
-                } catch (IOException ex) {
-                    log.warn("Failed to delete backup for {}: {}", audioFile.getName(), ex.getMessage());
-                }
-            }
         }
     }
 
@@ -179,7 +162,10 @@ public class AudiobookMetadataWriter implements MetadataWriter {
 
             deleteExistingCovers(folderPath);
 
-            Files.write(coverPath, coverData);
+            SafeFiles.replace(coverPath, local -> {
+                Files.write(local, coverData);
+                return true;
+            });
             log.info("Cover image saved to folder: {}", coverPath);
         } catch (IOException e) {
             log.warn("Failed to save cover to folder {}: {}", folderPath, e.getMessage());

@@ -15,6 +15,7 @@ import org.booklore.model.dto.settings.MetadataPersistenceSettings;
 import org.booklore.model.entity.BookMetadataEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.service.appsettings.AppSettingService;
+import org.booklore.util.SafeFiles;
 import org.booklore.util.SecureXmlUtils;
 import org.booklore.service.metadata.BookLoreMetadata;
 import org.springframework.stereotype.Component;
@@ -31,9 +32,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -56,50 +54,21 @@ public class PdfMetadataWriter implements MetadataWriter {
             return;
         }
 
-        Path filePath = file.toPath();
-        Path backupPath = null;
-        boolean backupCreated = false;
-        File tempFile = null;
-
+        // The new PDF is built locally, checked, then copied over the original (SafeFiles), so a
+        // failure at any point leaves the original as it was - no backup copy needed.
         try {
-            String prefix = "pdfBackup-" + UUID.randomUUID() + "-";
-            backupPath = Files.createTempFile(prefix, ".pdf");
-            Files.copy(filePath, backupPath, StandardCopyOption.REPLACE_EXISTING);
-            backupCreated = true;
-        } catch (IOException e) {
-            log.warn("Could not create PDF temp backup for {}: {}", file.getName(), e.getMessage());
-        }
-
-        try (PDDocument pdf = Loader.loadPDF(file, IOUtils.createTempFileOnlyStreamCache())) {
-            pdf.setAllSecurityToBeRemoved(true);
-            applyMetadataToDocument(pdf, metadataEntity, clear);
-            tempFile = File.createTempFile("pdfmeta-", ".pdf");
-            // PDFBox 3.x saves in compressed mode by default
-            pdf.save(tempFile);
-            Files.move(tempFile.toPath(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            tempFile = null; // Prevent deletion in finally block after successful move
+            SafeFiles.replace(file.toPath(), local -> {
+                try (PDDocument pdf = Loader.loadPDF(file, IOUtils.createTempFileOnlyStreamCache())) {
+                    pdf.setAllSecurityToBeRemoved(true);
+                    applyMetadataToDocument(pdf, metadataEntity, clear);
+                    // PDFBox 3.x saves in compressed mode by default
+                    pdf.save(local.toFile());
+                }
+                return true;
+            });
             log.info("Successfully embedded metadata into PDF: {}", file.getName());
         } catch (Exception e) {
             log.warn("Failed to write metadata to PDF {}: {}", file.getName(), e.getMessage(), e);
-            if (backupCreated) {
-                try {
-                    Files.copy(backupPath, filePath, StandardCopyOption.REPLACE_EXISTING);
-                    log.info("Restored PDF {} from temp backup after failure", file.getName());
-                } catch (IOException ex) {
-                    log.error("Failed to restore PDF temp backup for {}: {}", file.getName(), ex.getMessage(), ex);
-                }
-            }
-        } finally {
-            if (tempFile != null && tempFile.exists()) {
-                tempFile.delete();
-            }
-            if (backupCreated) {
-                try {
-                    Files.deleteIfExists(backupPath);
-                } catch (IOException e) {
-                    log.warn("Could not delete PDF temp backup for {}: {}", file.getName(), e.getMessage());
-                }
-            }
         }
     }
 

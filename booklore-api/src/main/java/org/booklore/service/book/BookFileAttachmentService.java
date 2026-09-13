@@ -19,6 +19,7 @@ import org.booklore.service.file.FileMoveHelper;
 import org.booklore.service.monitoring.MonitoringRegistrationService;
 import org.booklore.service.progress.ReadingProgressService;
 import org.booklore.util.PathPatternResolver;
+import org.booklore.util.SafeFiles;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -255,7 +256,7 @@ public class BookFileAttachmentService {
 
                     if (!currentPath.normalize().equals(destinationPath.normalize())) {
                         try {
-                            Files.move(currentPath, destinationPath);
+                            SafeFiles.move(currentPath, destinationPath, false);
                             log.info("Organized file from {} to {}", currentPath, destinationPath);
                             existingFile.setFileSubPath(targetFileSubPath);
                             existingFile.setFileName(newFileName);
@@ -313,7 +314,7 @@ public class BookFileAttachmentService {
 
                     Path destinationPath = targetDirectory.resolve(newFileName);
                     try {
-                        Files.move(sourceFilePath, destinationPath);
+                        SafeFiles.move(sourceFilePath, destinationPath, false);
                         log.info("Moved file from {} to {}", sourceFilePath, destinationPath);
                     } catch (IOException e) {
                         log.error("Failed to move file from {} to {}", sourceFilePath, destinationPath, e);

@@ -37,6 +37,7 @@ import java.time.Instant;
 import java.util.Optional;
 import org.booklore.model.enums.AuditAction;
 import org.booklore.service.audit.AuditService;
+import org.booklore.util.SafeFiles;
 
 @RequiredArgsConstructor
 @Service
@@ -310,9 +311,10 @@ public class FileUploadService {
         }
     }
 
+    // Uploads are staged in the system temp folder, so this usually crosses filesystems:
+    // SafeFiles verifies the copy in the library before the staged file is removed.
     private void moveFileToFinalLocation(Path sourcePath, Path targetPath) throws IOException {
-        Files.createDirectories(targetPath.getParent());
-        Files.move(sourcePath, targetPath);
+        SafeFiles.move(sourcePath, targetPath, false);
     }
 
     private void validateAlternativeFormatDuplicate(String fileHash) {

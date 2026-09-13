@@ -264,21 +264,15 @@ class BookDropServiceTest {
         bookEntity.setId(1L);
         when(bookRepository.findById(1L)).thenReturn(Optional.of(bookEntity));
 
-        try (MockedStatic<Files> filesMock = mockStatic(Files.class, withSettings().lenient())) {
-            filesMock.when(() -> Files.exists(any(Path.class))).thenReturn(true);
-            filesMock.when(() -> Files.createTempFile(anyString(), anyString())).thenReturn(tempDir.resolve("temp-file"));
-            filesMock.when(() -> Files.copy(any(Path.class), any(Path.class), any())).thenReturn(1024L);
-            filesMock.when(() -> Files.createDirectories(any(Path.class))).thenReturn(tempDir);
-            filesMock.when(() -> Files.move(any(Path.class), any(Path.class), any())).thenReturn(tempDir);
-            filesMock.when(() -> Files.deleteIfExists(any(Path.class))).thenReturn(true);
+        Files.writeString(Path.of(bookdropFileEntity.getFilePath()), "%PDF-1.7 test book");
 
-            BookdropFinalizeResult result = bookDropService.finalizeImport(request);
+        BookdropFinalizeResult result = bookDropService.finalizeImport(request);
 
-            assertNotNull(result);
-            assertEquals(1, result.getTotalFiles());
-            assertEquals(1, result.getSuccessfullyImported());
-            assertEquals(0, result.getFailed());
-        }
+        assertNotNull(result);
+        assertEquals(1, result.getTotalFiles());
+        assertEquals(1, result.getSuccessfullyImported());
+        assertEquals(0, result.getFailed());
+        assertEquals("%PDF-1.7 test book", Files.readString(tempDir.resolve("moved-book.pdf")));
     }
 
     @Test
@@ -488,25 +482,18 @@ class BookDropServiceTest {
         when(appProperties.getPathConfig()).thenReturn(tempDir.toString());
 
         Path sourcePath = Path.of(bookdropFileEntity.getFilePath());
-        Path tempPath = tempDir.resolve("temp-file");
         Path targetPath = tempDir.resolve("moved-book.pdf");
+        Files.writeString(sourcePath, "%PDF-1.7 test book");
 
-        try (MockedStatic<Files> filesMock = mockStatic(Files.class)) {
-            filesMock.when(() -> Files.exists(any(Path.class))).thenReturn(true);
-            filesMock.when(() -> Files.createTempFile(anyString(), anyString())).thenReturn(tempPath);
-            filesMock.when(() -> Files.copy(any(Path.class), any(Path.class), any())).thenReturn(tempPath);
-            filesMock.when(() -> Files.createDirectories(any(Path.class))).thenReturn(tempDir);
-            filesMock.when(() -> Files.move(any(Path.class), any(Path.class), any())).thenReturn(targetPath);
-            
-            BookdropFinalizeResult result = bookDropService.finalizeImport(request);
+        BookdropFinalizeResult result = bookDropService.finalizeImport(request);
 
-            assertNotNull(result);
-            assertEquals(1, result.getTotalFiles());
-            assertEquals(1, result.getSuccessfullyImported());
-            assertEquals(0, result.getFailed());
+        assertNotNull(result);
+        assertEquals(1, result.getTotalFiles());
+        assertEquals(1, result.getSuccessfullyImported());
+        assertEquals(0, result.getFailed());
 
-            filesMock.verify(() -> Files.delete(sourcePath), times(1));
-        }
+        assertFalse(Files.exists(sourcePath), "the BookDrop copy is removed once the import succeeds");
+        assertEquals("%PDF-1.7 test book", Files.readString(targetPath));
     }
 
     @Test
@@ -534,28 +521,18 @@ class BookDropServiceTest {
         when(processor.processFile(any())).thenThrow(new RuntimeException("Processing failed"));
 
         Path sourcePath = Path.of(bookdropFileEntity.getFilePath());
-        Path tempPath = tempDir.resolve("temp-file");
         Path targetPath = tempDir.resolve("moved-book.pdf");
+        Files.writeString(sourcePath, "%PDF-1.7 test book");
 
-        try (MockedStatic<Files> filesMock = mockStatic(Files.class)) {
-            filesMock.when(() -> Files.exists(any(Path.class))).thenReturn(true);
-            filesMock.when(() -> Files.createTempFile(anyString(), anyString())).thenReturn(tempPath);
-            filesMock.when(() -> Files.copy(any(Path.class), any(Path.class), any())).thenReturn(tempPath);
-            filesMock.when(() -> Files.createDirectories(any(Path.class))).thenReturn(tempDir);
-            filesMock.when(() -> Files.move(any(Path.class), any(Path.class), any())).thenReturn(targetPath);
-            
-            filesMock.when(() -> Files.deleteIfExists(targetPath)).thenReturn(true);
+        BookdropFinalizeResult result = bookDropService.finalizeImport(request);
 
-            BookdropFinalizeResult result = bookDropService.finalizeImport(request);
+        assertNotNull(result);
+        assertEquals(1, result.getTotalFiles());
+        assertEquals(0, result.getSuccessfullyImported());
+        assertEquals(1, result.getFailed());
 
-            assertNotNull(result);
-            assertEquals(1, result.getTotalFiles());
-            assertEquals(0, result.getSuccessfullyImported());
-            assertEquals(1, result.getFailed());
-
-            filesMock.verify(() -> Files.delete(sourcePath), never());
-            filesMock.verify(() -> Files.deleteIfExists(targetPath), times(1));
-        }
+        assertTrue(Files.exists(sourcePath), "the BookDrop copy is kept when the import fails");
+        assertFalse(Files.exists(targetPath), "the copy in the library is removed again");
     }
 
     @Test

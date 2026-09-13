@@ -22,6 +22,7 @@ import org.booklore.model.enums.BookFileType;
 import org.booklore.model.enums.ComicCreatorRole;
 import org.booklore.service.appsettings.AppSettingService;
 import org.booklore.util.ArchiveUtils;
+import org.booklore.util.SafeFiles;
 import org.booklore.util.UnrarHelper;
 import org.booklore.util.EnvVars;
 import org.jsoup.Jsoup;
@@ -31,7 +32,6 @@ import org.springframework.stereotype.Component;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 import java.util.Enumeration;
@@ -80,11 +80,8 @@ public class CbxMetadataWriter implements MetadataWriter {
             return;
         }
 
-        Path backupPath = createBackupFile(file);
-        Path extractDir = null;
-        Path tempArchive = null;
-        boolean writeSucceeded = false;
-
+        // Every path below builds the new archive locally and swaps it in with SafeFiles, so the
+        // original is never edited in place and a failure leaves it as it was.
         try {
             ComicInfo comicInfo = loadOrCreateComicInfo(file, isCbz, isCb7, isCbr);
             applyMetadataChanges(comicInfo, metadata, clearFlags);
@@ -92,25 +89,19 @@ public class CbxMetadataWriter implements MetadataWriter {
 
             if (isCbz) {
                 log.debug("CbxMetadataWriter: Writing ComicInfo.xml to CBZ file: {}, XML size: {} bytes", file.getName(), xmlContent.length);
-                tempArchive = updateZipArchive(file, xmlContent);
-                writeSucceeded = true;
+                updateZipArchive(file, xmlContent);
                 log.info("CbxMetadataWriter: Successfully wrote metadata to CBZ file: {}", file.getName());
             } else if (isCb7) {
                 log.debug("CbxMetadataWriter: Converting CB7 to CBZ and writing ComicInfo.xml: {}", file.getName());
-                tempArchive = convert7zToZip(file, xmlContent);
-                writeSucceeded = true;
+                convert7zToZip(file, xmlContent);
                 log.info("CbxMetadataWriter: Successfully converted CB7 to CBZ and wrote metadata: {}", file.getName());
             } else {
                 log.debug("CbxMetadataWriter: Writing ComicInfo.xml to RAR file: {}", file.getName());
-                tempArchive = updateRarArchive(file, xmlContent, extractDir);
-                writeSucceeded = true;
+                updateRarArchive(file, xmlContent);
                 log.info("CbxMetadataWriter: Successfully wrote metadata to RAR/CBZ file: {}", file.getName());
             }
         } catch (Exception e) {
-            restoreOriginalFile(backupPath, file);
             log.warn("Failed to write metadata for {}: {}", file.getName(), e.getMessage(), e);
-        } finally {
-            cleanupTempFiles(tempArchive, extractDir, backupPath, writeSucceeded);
         }
     }
 
@@ -130,17 +121,6 @@ public class CbxMetadataWriter implements MetadataWriter {
         }
 
         return true;
-    }
-
-    private Path createBackupFile(File file) {
-        try {
-            Path backupPath = Files.createTempFile(file.getParentFile().toPath(), "cbx_backup_", ".bak");
-            Files.copy(file.toPath(), backupPath, StandardCopyOption.REPLACE_EXISTING);
-            return backupPath;
-        } catch (Exception ex) {
-            log.warn("Unable to create backup for {}: {}", file.getAbsolutePath(), ex.getMessage(), ex);
-            return null;
-        }
     }
 
     private ComicInfo loadOrCreateComicInfo(File file, boolean isCbz, boolean isCb7, boolean isCbr) throws Exception {
@@ -521,27 +501,24 @@ public class CbxMetadataWriter implements MetadataWriter {
         return outputStream.toByteArray();
     }
 
-    private Path updateZipArchive(File originalFile, byte[] xmlContent) throws Exception {
-        // Create temp file in same directory as original for true atomic move on same filesystem
-        Path tempArchive = Files.createTempFile(originalFile.toPath().getParent(), ".cbx_edit_", ".cbz");
-        rebuildZipWithNewXml(originalFile.toPath(), tempArchive, xmlContent);
-        replaceFileAtomic(tempArchive, originalFile.toPath());
-        return null;
+    private void updateZipArchive(File originalFile, byte[] xmlContent) throws Exception {
+        SafeFiles.replace(originalFile.toPath(), local -> {
+            rebuildZipWithNewXml(originalFile.toPath(), local, xmlContent);
+            return true;
+        });
     }
 
-    private Path convert7zToZip(File original7z, byte[] xmlContent) throws Exception {
-        // Create temp file in same directory as original for true atomic move on same filesystem
-        Path tempZip = Files.createTempFile(original7z.toPath().getParent(), ".cbx_edit_", ".cbz");
-        repack7zToZipWithXml(original7z, tempZip, xmlContent);
-
+    private void convert7zToZip(File original7z, byte[] xmlContent) throws Exception {
         Path targetPath = original7z.toPath().resolveSibling(removeFileExtension(original7z.getName()) + ".cbz");
-        replaceFileAtomic(tempZip, targetPath);
+        SafeFiles.replace(targetPath, local -> {
+            repack7zToZipWithXml(original7z, local, xmlContent);
+            return true;
+        });
 
         try {
             Files.deleteIfExists(original7z.toPath());
         } catch (Exception ignored) {
         }
-        return null;
     }
 
     private void repack7zToZipWithXml(File source7z, Path targetZip, byte[] xmlContent) throws Exception {
@@ -570,37 +547,41 @@ public class CbxMetadataWriter implements MetadataWriter {
         }
     }
 
-    private Path updateRarArchive(File originalRar, byte[] xmlContent, Path extractDir) throws Exception {
+    private void updateRarArchive(File originalRar, byte[] xmlContent) throws Exception {
         String rarCommand = EnvVars.getOrDefault("RAR_BIN", "rar");
         boolean rarAvailable = checkRarAvailability(rarCommand);
 
         if (rarAvailable) {
-            return updateRarWithCommand(originalRar, xmlContent, rarCommand, extractDir);
+            updateRarWithCommand(originalRar, xmlContent, rarCommand);
         } else {
             log.warn("`rar` binary not found. Falling back to CBZ conversion for {}", originalRar.getName());
-            return convertRarToZipArchive(originalRar, xmlContent);
+            convertRarToZipArchive(originalRar, xmlContent);
         }
     }
 
-    private Path updateRarWithCommand(File originalRar, byte[] xmlContent, String rarCommand, Path extractDir) throws Exception {
-        extractDir = Files.createTempDirectory("cbx_rar_");
-        extractRarContents(originalRar, extractDir);
+    private void updateRarWithCommand(File originalRar, byte[] xmlContent, String rarCommand) throws Exception {
+        Path extractDir = Files.createTempDirectory("cbx_rar_");
+        try {
+            extractRarContents(originalRar, extractDir);
+            Files.write(extractDir.resolve("ComicInfo.xml"), xmlContent);
 
-        Path xmlPath = extractDir.resolve("ComicInfo.xml");
-        Files.write(xmlPath, xmlContent);
-
-        Path targetRar = originalRar.toPath().toAbsolutePath().normalize();
-        String safeCommand = isExecutableSafe(rarCommand) ? rarCommand : "rar";
-        ProcessBuilder processBuilder = new ProcessBuilder(safeCommand, "a", "-idq", "-ep1", "-ma5", targetRar.toString(), ".");
-        processBuilder.directory(extractDir.toFile());
-        Process process = processBuilder.start();
-        int exitCode = process.waitFor();
-
-        if (exitCode == 0) {
-            return null;
-        } else {
-            log.warn("RAR creation failed with exit code {}. Falling back to CBZ conversion for {}", exitCode, originalRar.getName());
-            return convertRarToZipArchive(originalRar, xmlContent);
+            String safeCommand = isExecutableSafe(rarCommand) ? rarCommand : "rar";
+            int[] exitCode = {0};
+            // `rar a` updates an archive in place, so it works on a local copy that SafeFiles then
+            // checks and swaps in.
+            SafeFiles.replace(originalRar.toPath(), local -> {
+                SafeFiles.copyContents(originalRar.toPath(), local);
+                ProcessBuilder processBuilder = new ProcessBuilder(safeCommand, "a", "-idq", "-ep1", "-ma5", local.toAbsolutePath().toString(), ".");
+                processBuilder.directory(extractDir.toFile());
+                exitCode[0] = processBuilder.start().waitFor();
+                return exitCode[0] == 0;
+            });
+            if (exitCode[0] != 0) {
+                log.warn("RAR creation failed with exit code {}. Falling back to CBZ conversion for {}", exitCode[0], originalRar.getName());
+                convertRarToZipArchive(originalRar, xmlContent);
+            }
+        } finally {
+            deleteDirectoryRecursively(extractDir);
         }
     }
 
@@ -639,12 +620,22 @@ public class CbxMetadataWriter implements MetadataWriter {
         }
     }
 
-    private Path convertRarToZipArchive(File rarFile, byte[] xmlContent) throws Exception {
-        // Create temp file in same directory as original for true atomic move on same filesystem
-        Path tempZip = Files.createTempFile(rarFile.toPath().getParent(), ".cbx_edit_", ".cbz");
+    private void convertRarToZipArchive(File rarFile, byte[] xmlContent) throws Exception {
+        Path targetPath = rarFile.toPath().resolveSibling(removeFileExtension(rarFile.getName()) + ".cbz");
+        SafeFiles.replace(targetPath, local -> {
+            writeRarAsZip(rarFile, local, xmlContent);
+            return true;
+        });
 
+        try {
+            Files.deleteIfExists(rarFile.toPath());
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void writeRarAsZip(File rarFile, Path zipPath, byte[] xmlContent) throws Exception {
         try (Archive rarArchive = new Archive(rarFile);
-             ZipOutputStream zipOutput = new ZipOutputStream(Files.newOutputStream(tempZip))) {
+             ZipOutputStream zipOutput = new ZipOutputStream(Files.newOutputStream(zipPath))) {
 
             for (FileHeader header : rarArchive.getFileHeaders()) {
                 if (header.isDirectory()) continue;
@@ -666,21 +657,12 @@ public class CbxMetadataWriter implements MetadataWriter {
         } catch (Exception e) {
             if (UnrarHelper.isAvailable()) {
                 log.info("junrar failed for {}, falling back to unrar CLI for RAR-to-ZIP: {}", rarFile.getName(), e.getMessage());
-                convertRarToZipViaCli(rarFile.toPath(), tempZip, xmlContent);
+                Files.deleteIfExists(zipPath);
+                convertRarToZipViaCli(rarFile.toPath(), zipPath, xmlContent);
             } else {
                 throw e;
             }
         }
-
-        Path targetPath = rarFile.toPath().resolveSibling(removeFileExtension(rarFile.getName()) + ".cbz");
-        replaceFileAtomic(tempZip, targetPath);
-
-        try {
-            Files.deleteIfExists(rarFile.toPath());
-        } catch (Exception ignored) {
-        }
-
-        return null;
     }
 
     private void convertRarToZipViaCli(Path rarPath, Path tempZip, byte[] xmlContent) throws Exception {
@@ -700,39 +682,6 @@ public class CbxMetadataWriter implements MetadataWriter {
             zipOutput.putNextEntry(new ZipEntry("ComicInfo.xml"));
             zipOutput.write(xmlContent);
             zipOutput.closeEntry();
-        }
-    }
-
-    private void restoreOriginalFile(Path backupPath, File targetFile) {
-        try {
-            if (backupPath != null) {
-                Files.copy(backupPath, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                log.info("Restored original file from backup after failure: {}", targetFile.getAbsolutePath());
-            }
-        } catch (Exception restoreException) {
-            log.warn("Failed to restore original file from backup: {} -> {}", backupPath, targetFile.getAbsolutePath(), restoreException);
-        }
-    }
-
-    private void cleanupTempFiles(Path tempArchive, Path extractDir, Path backupPath, boolean writeSucceeded) {
-        if (tempArchive != null) {
-            try {
-                Files.deleteIfExists(tempArchive);
-            } catch (Exception e) {
-                log.warn("Failed to delete temp file: {}", tempArchive, e);
-            }
-        }
-
-        if (extractDir != null) {
-            deleteDirectoryRecursively(extractDir);
-        }
-
-        if (writeSucceeded && backupPath != null) {
-            try {
-                Files.deleteIfExists(backupPath);
-            } catch (Exception e) {
-                log.warn("Failed to delete backup file: {}", backupPath, e);
-            }
         }
     }
 
@@ -824,14 +773,6 @@ public class CbxMetadataWriter implements MetadataWriter {
     private void extractRarEntry(Archive archive, FileHeader fileHeader, OutputStream output) throws Exception {
         try (InputStream entryStream = archive.getInputStream(fileHeader)) {
             copyStream(entryStream, output);
-        }
-    }
-
-    private static void replaceFileAtomic(Path source, Path target) throws Exception {
-        try {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (Exception e) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 

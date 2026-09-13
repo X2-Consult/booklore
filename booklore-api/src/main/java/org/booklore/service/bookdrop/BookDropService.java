@@ -35,6 +35,7 @@ import org.booklore.service.kobo.KoboAutoShelfService;
 import org.booklore.service.metadata.MetadataRefreshService;
 import org.booklore.service.monitoring.MonitoringRegistrationService;
 import org.booklore.util.FileUtils;
+import org.booklore.util.SafeFiles;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
@@ -47,7 +48,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -418,21 +418,14 @@ public class BookDropService {
     }
 
     private BookdropFileResult performFileMove(BookdropFileEntity bookdropFile, Path source, Path target, LibraryEntity library, LibraryPathEntity path, BookMetadata metadata) {
-        Path tempPath = null;
         try {
-            String suffix = "";
-            String fileName = bookdropFile.getFileName();
-            int lastDotIndex = fileName.lastIndexOf('.');
-            if (lastDotIndex >= 0) {
-                suffix = fileName.substring(lastDotIndex);
-            }
-            tempPath = Files.createTempFile("bookdrop-finalize-", suffix);
-            Files.copy(source, tempPath, StandardCopyOption.REPLACE_EXISTING);
+            // Copied straight into the library, verified against the source and renamed into place
+            // (SafeFiles). The old route - copy to /tmp, then move - crossed filesystems, and on some
+            // mounts that left an empty file at the target (Grimmory #1759). The source is deleted
+            // only after the import succeeds, below.
+            SafeFiles.copy(source, target);
 
-            Files.createDirectories(target.getParent());
-            Files.move(tempPath, target, StandardCopyOption.REPLACE_EXISTING);
-
-            log.info("Moved file id={}, name={} from '{}' to '{}'", bookdropFile.getId(), bookdropFile.getFileName(), source, target);
+            log.info("Copied file id={}, name={} from '{}' to '{}'", bookdropFile.getId(), bookdropFile.getFileName(), source, target);
 
             BookdropFileResult result;
             try {
@@ -459,8 +452,6 @@ public class BookDropService {
             log.error("Failed to move file id={}, name={} from '{}' to '{}': {}", bookdropFile.getId(), bookdropFile.getFileName(), source, target, e.getMessage(), e);
             cleanupFailedMove(target);
             return failureResult(bookdropFile.getFileName(), "Failed to move file: " + e.getMessage());
-        } finally {
-            cleanupTempFile(tempPath);
         }
     }
 
@@ -528,16 +519,6 @@ public class BookDropService {
             }
         } catch (IOException e) {
             log.warn("Failed to cleanup partially created target file: {}: {}", target, e.getMessage());
-        }
-    }
-
-    private void cleanupTempFile(Path tempPath) {
-        if (tempPath != null) {
-            try {
-                Files.deleteIfExists(tempPath);
-            } catch (Exception e) {
-                log.warn("Failed to cleanup temp file: {}", tempPath, e);
-            }
         }
     }
 

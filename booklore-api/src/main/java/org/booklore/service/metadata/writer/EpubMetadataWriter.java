@@ -13,6 +13,7 @@ import org.booklore.model.entity.BookMetadataEntity;
 import org.booklore.model.enums.BookFileType;
 import org.booklore.service.appsettings.AppSettingService;
 import org.booklore.util.FileService;
+import org.booklore.util.SafeFiles;
 import org.booklore.util.SecureXmlUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,7 +41,6 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.UUID;
@@ -60,13 +60,6 @@ public class EpubMetadataWriter implements MetadataWriter {
             return;
         }
 
-        File backupFile = new File(epubFile.getParentFile(), epubFile.getName() + ".bak");
-        try {
-            Files.copy(epubFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            log.warn("Failed to create backup of EPUB {}: {}", epubFile.getName(), ex.getMessage());
-            return;
-        }
         Path tempDir = null;
         try {
             tempDir = Files.createTempDirectory("epub_edit_" + UUID.randomUUID());
@@ -222,37 +215,18 @@ public class EpubMetadataWriter implements MetadataWriter {
                 transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
                 transformer.transform(new DOMSource(opfDoc), new StreamResult(opfFile));
 
-                File tempEpub = new File(epubFile.getParentFile(), epubFile.getName() + ".tmp");
-                try (ZipFile tempZipFile = new ZipFile(tempEpub)) {
-                    addFolderContentsToZip(tempZipFile, tempDir.toFile(), tempDir.toFile());
-                }
-
-                atomicReplace(tempEpub, epubFile);
+                replaceEpub(epubFile, tempDir);
 
                 log.info("Metadata updated in EPUB: {}", epubFile.getName());
             } else {
                 log.info("No changes detected. Skipping EPUB write for: {}", epubFile.getName());
             }
         } catch (Exception e) {
+            // The original is only ever replaced by a complete, checked file, so nothing to restore.
             log.warn("Failed to write metadata to EPUB file {}: {}", epubFile.getName(), e.getMessage(), e);
-            if (backupFile.exists()) {
-                try {
-                    Files.copy(backupFile.toPath(), epubFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    log.info("Restored EPUB from backup: {}", epubFile.getName());
-                } catch (IOException io) {
-                    log.error("Failed to restore EPUB from backup for {}: {}", epubFile.getName(), io.getMessage(), io);
-                }
-            }
         } finally {
             if (tempDir != null) {
                 deleteDirectoryRecursively(tempDir);
-            }
-            if (backupFile.exists()) {
-                try {
-                    Files.delete(backupFile.toPath());
-                } catch (IOException ex) {
-                    log.warn("Failed to delete backup for {}: {}", epubFile.getName(), ex.getMessage());
-                }
             }
         }
     }
@@ -379,12 +353,7 @@ public class EpubMetadataWriter implements MetadataWriter {
             transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
             transformer.transform(new DOMSource(opfDoc), new StreamResult(opfFile));
 
-            File tempEpub = new File(epubFile.getParentFile(), epubFile.getName() + ".tmp");
-            try (ZipFile tempZipFile = new ZipFile(tempEpub)) {
-                addFolderContentsToZip(tempZipFile, tempDir.toFile(), tempDir.toFile());
-            }
-
-            atomicReplace(tempEpub, epubFile);
+            replaceEpub(epubFile, tempDir);
 
             log.info("Cover image updated in EPUB from {}: {}", source, epubFile.getName());
 
@@ -715,19 +684,16 @@ public class EpubMetadataWriter implements MetadataWriter {
         return null;
     }
 
-    // Readers stream directly from disk (FileStreamingService), so swapping in the rewritten
-    // EPUB must never leave a window where the path is missing or points at a partial file.
-    // delete()-then-renameTo() is two separate filesystem operations; a concurrent reader
-    // landing between them gets a spurious "not found". A single move is what POSIX rename(2)
-    // guarantees is atomic, so prefer ATOMIC_MOVE and only fall back when the filesystem can't
-    // provide it (e.g. the temp file ended up on a different filesystem than the target).
-    private void atomicReplace(File tempFile, File targetFile) throws IOException {
-        try {
-            Files.move(tempFile.toPath(), targetFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-            Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        }
+    // Zips the edited contents locally, checks the result and swaps it in with SafeFiles: readers
+    // stream directly from disk (FileStreamingService), so the path must never be missing or point
+    // at a partial file, and a damaged rebuild must never replace the original.
+    private void replaceEpub(File epubFile, Path extractedDir) throws IOException {
+        SafeFiles.replace(epubFile.toPath(), local -> {
+            try (ZipFile zip = new ZipFile(local.toFile())) {
+                addFolderContentsToZip(zip, extractedDir.toFile(), extractedDir.toFile());
+            }
+            return true;
+        });
     }
 
     private void deleteDirectoryRecursively(Path dir) {
