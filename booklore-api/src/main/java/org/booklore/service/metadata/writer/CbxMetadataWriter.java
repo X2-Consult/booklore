@@ -23,6 +23,7 @@ import org.booklore.model.enums.ComicCreatorRole;
 import org.booklore.service.appsettings.AppSettingService;
 import org.booklore.util.ArchiveUtils;
 import org.booklore.util.UnrarHelper;
+import org.booklore.util.EnvVars;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Component;
@@ -570,7 +571,7 @@ public class CbxMetadataWriter implements MetadataWriter {
     }
 
     private Path updateRarArchive(File originalRar, byte[] xmlContent, Path extractDir) throws Exception {
-        String rarCommand = System.getenv().getOrDefault("BOOKLORE_RAR_BIN", "rar");
+        String rarCommand = EnvVars.getOrDefault("RAR_BIN", "rar");
         boolean rarAvailable = checkRarAvailability(rarCommand);
 
         if (rarAvailable) {

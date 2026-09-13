@@ -9,6 +9,7 @@ import org.booklore.model.dto.VersionInfo;
 import org.booklore.model.enums.AuditAction;
 import org.booklore.service.VersionService;
 import org.booklore.service.audit.AuditService;
+import org.booklore.util.EnvVars;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -33,6 +34,9 @@ public class SystemUpdateService {
 
     private static final Duration LOCK_STALE_AFTER = Duration.ofMinutes(15);
     private static final Path DOCKER_MARKER = Path.of("/.dockerenv");
+    private static final Path SELF_UPDATE_SCRIPT = Path.of("scripts", "self-update.sh");
+    // Checkout locations to try when TROVE_REPO_DIR isn't set and the working directory doesn't tell.
+    private static final List<String> DEFAULT_REPO_DIRS = List.of("/opt/trove", "/opt/booklore");
 
     private final AppProperties appProperties;
     private final VersionService versionService;
@@ -71,7 +75,7 @@ public class SystemUpdateService {
         }
 
         try {
-            Path script = Path.of(appProperties.getRepoDir(), "scripts", "self-update.sh");
+            Path script = Path.of(repoDir()).resolve(SELF_UPDATE_SCRIPT);
             processLauncher.launchDetached(
                     List.of("setsid", "bash", script.toString(), lock.toString()),
                     lock.getParent().resolve("update.log").toFile());
@@ -90,17 +94,36 @@ public class SystemUpdateService {
         if (Files.exists(DOCKER_MARKER)) {
             return false;
         }
-        if ("false".equalsIgnoreCase(System.getenv("BOOKLORE_SELF_UPDATE"))) {
+        if ("false".equalsIgnoreCase(EnvVars.get("SELF_UPDATE"))) {
             return false;
         }
-        String repoDir = appProperties.getRepoDir();
-        if (repoDir == null || repoDir.isBlank()) {
-            return false;
-        }
-        if (!Files.isReadable(Path.of(repoDir, "scripts", "self-update.sh"))) {
+        String repoDir = repoDir();
+        if (repoDir == null || !Files.isReadable(Path.of(repoDir).resolve(SELF_UPDATE_SCRIPT))) {
             return false;
         }
         return processLauncher.canRestartService();
+    }
+
+    /**
+     * The checkout to update: TROVE_REPO_DIR (or BOOKLORE_REPO_DIR) if set; otherwise the parent of the
+     * working directory when that is the checkout's booklore-api folder, as the systemd units set it;
+     * otherwise /opt/trove, then /opt/booklore for installs not yet migrated. Null if none has the script.
+     */
+    String repoDir() {
+        String configured = appProperties.getRepoDir();
+        if (configured != null && !configured.isBlank()) {
+            return configured;
+        }
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        Path parent = workingDir.getParent();
+        if (parent != null && "booklore-api".equals(String.valueOf(workingDir.getFileName()))
+                && Files.isReadable(parent.resolve(SELF_UPDATE_SCRIPT))) {
+            return parent.toString();
+        }
+        return DEFAULT_REPO_DIRS.stream()
+                .filter(dir -> Files.isReadable(Path.of(dir).resolve(SELF_UPDATE_SCRIPT)))
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean isInProgress() {

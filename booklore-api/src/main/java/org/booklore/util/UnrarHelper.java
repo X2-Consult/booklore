@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 @UtilityClass
 public class UnrarHelper {
 
-    private static final String UNRAR_BIN_ENV = "BOOKLORE_UNRAR_BIN";
     private static final String DEFAULT_UNRAR_BIN = "unrar";
     private static final int PROCESS_TIMEOUT_SECONDS = 120;
     private static volatile Boolean cachedAvailability;
@@ -128,7 +127,6 @@ public class UnrarHelper {
     }
 
     private static String getUnrarBin() {
-        String env = System.getenv(UNRAR_BIN_ENV);
-        return (env != null && !env.isBlank()) ? env : DEFAULT_UNRAR_BIN;
+        return EnvVars.getOrDefault("UNRAR_BIN", DEFAULT_UNRAR_BIN);
     }
 }

@@ -134,4 +134,19 @@ class SystemUpdateServiceTest {
 
         verify(processLauncher).launchDetached(any(), any());
     }
+
+    @Test
+    void repoDir_prefersTheConfiguredCheckout() {
+        assertThat(service.repoDir()).isEqualTo(repoDir.toString());
+    }
+
+    @Test
+    void repoDir_unset_usesTheCheckoutTheServiceRunsIn() {
+        // Tests run from <checkout>/booklore-api, the same working directory the systemd units use.
+        appProperties.setRepoDir("");
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+
+        assertThat(workingDir.getFileName().toString()).isEqualTo("booklore-api");
+        assertThat(service.repoDir()).isEqualTo(workingDir.getParent().toString());
+    }
 }

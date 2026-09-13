@@ -4,7 +4,9 @@ app:
   # Release builds (CI) rewrite this literal with the git tag via yq. Native installs
   # leave the literal in place and pass the real version through APP_VERSION instead.
   version: ${APP_VERSION:development}
-  repo-dir: ${BOOKLORE_REPO_DIR:/opt/booklore}
+  # Checkout used by the in-app updater. Unset, it's worked out from the working directory (see
+  # SystemUpdateService.repoDir). BOOKLORE_* names are read as fallbacks for installs from before the rename.
+  repo-dir: ${TROVE_REPO_DIR:${BOOKLORE_REPO_DIR:}}
 
   cors:
     # Comma-separated list of allowed CORS origins.
@@ -63,7 +65,7 @@ app:
 server:
   max-http-header-size: 128KB
   forward-headers-strategy: native
-  port: ${BOOKLORE_PORT:6060}
+  port: ${TROVE_PORT:${BOOKLORE_PORT:6060}}
   compression:
     enabled: true
     mime-types: text/html,text/css,application/javascript,application/json,image/svg+xml,application/xml,application/atom+xml
@@ -82,17 +84,17 @@ spring:
     async:
       request-timeout: 600000
   application:
-    name: booklore-api
+    name: trove
   data:
     web:
       pageable:
         max-page-size: 100
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://${DATABASE_HOST:${DB_HOST:postgres}}:${DATABASE_PORT:5432}/${DATABASE_NAME:booklore}}
-    username: ${DATABASE_USERNAME:booklore}
+    url: ${DATABASE_URL:jdbc:postgresql://${DATABASE_HOST:${DB_HOST:postgres}}:${DATABASE_PORT:5432}/${DATABASE_NAME:trove}}
+    username: ${DATABASE_USERNAME:trove}
     password: ${DATABASE_PASSWORD:${POSTGRES_PASSWORD}}
     hikari:
-      pool-name: BookloreHikariPool
+      pool-name: TroveHikariPool
       max-lifetime: 580000         # 9.6 minutes (avoid DB-side connection cuts)
       connection-test-query: SELECT 1
       connection-timeout: 30000    # 30s to acquire a connection before timeout

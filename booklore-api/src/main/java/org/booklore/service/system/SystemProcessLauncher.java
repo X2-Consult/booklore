@@ -38,7 +38,8 @@ class SystemProcessLauncher implements ProcessLauncher {
                 p.destroyForcibly();
                 return false;
             }
-            return p.exitValue() == 0 && out.contains("booklore-api");
+            // "trove" is the service install.sh creates; "booklore-api" is its name before the rename.
+            return p.exitValue() == 0 && (out.contains("systemctl restart trove") || out.contains("booklore-api"));
         } catch (Exception e) {
             log.debug("sudo self-update probe failed: {}", e.getMessage());
             return false;

@@ -18,8 +18,8 @@ public interface ProcessLauncher {
     void launchDetached(List<String> command, File output) throws IOException;
 
     /**
-     * True if this process can {@code sudo systemctl restart booklore-api} without a password
-     * prompt (i.e. the /etc/sudoers.d/booklore drop-in from install.sh is in place).
+     * True if this process can {@code sudo systemctl restart trove} (or {@code booklore-api} on an
+     * install not yet migrated) without a password prompt, i.e. install.sh's sudoers drop-in is in place.
      */
     boolean canRestartService();
 }
