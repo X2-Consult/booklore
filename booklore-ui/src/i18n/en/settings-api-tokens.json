@@ -1,6 +1,6 @@
 {
   "title": "API Tokens",
-  "description": "Generate tokens for third-party apps to connect to your Booklore library. Unlike your login password, a token is always read-only plus reading-progress updates - it can never delete, edit, or upload anything, no matter what your account is otherwise permitted to do.",
+  "description": "Generate tokens for third-party apps to connect to your Trove library. Unlike your login password, a token is always read-only plus reading-progress updates - it can never delete, edit, or upload anything, no matter what your account is otherwise permitted to do.",
   "sectionTitle": "Your Tokens",
   "sectionDesc": "Each token is tied to your account and can be revoked independently at any time.",
   "addToken": "New Token",

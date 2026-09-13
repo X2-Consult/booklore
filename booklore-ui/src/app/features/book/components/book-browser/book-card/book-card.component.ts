@@ -185,7 +185,7 @@ export class BookCardComponent implements OnInit, OnChanges, OnDestroy {
 
     const progressParts: string[] = [];
     if (this._progressPercentage !== null) {
-      progressParts.push(`${this._progressPercentage}% (BookLore)`);
+      progressParts.push(`${this._progressPercentage}% (Trove)`);
     }
     if (this._koProgressPercentage !== null) {
       progressParts.push(`${this._koProgressPercentage}% (KOReader)`);

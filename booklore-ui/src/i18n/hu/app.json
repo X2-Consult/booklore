@@ -1,8 +1,8 @@
 {
     "offline": "Offline vagy",
-    "loading": "Booklore betöltése…",
+    "loading": "Trove betöltése…",
     "loadingDescription": "Kérlek várj amíg felkészülünk.",
-    "offlineLoadingDescription": "Szerverkapcsolat szükséges a BookLore betöltéséhez.",
+    "offlineLoadingDescription": "Szerverkapcsolat szükséges a Trove betöltéséhez.",
     "offlineDescription": "Ellenőrizd a hálózati kapcsolatodat és próbáld újra.",
     "connectionLost": "A kapcsolatod megszakadt. Bizonyos funkciók elérhetetlenek lehetnek."
 }
