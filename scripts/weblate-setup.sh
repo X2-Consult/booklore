@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Weblate Setup Script for BookLore
+# Weblate Setup Script for Trove
 #
 # Creates the Weblate project and all translation components via the API.
 # Run once after creating your Hosted Weblate account.
@@ -20,8 +20,8 @@ WEBLATE_URL="${WEBLATE_URL:-https://hosted.weblate.org}"
 API="${WEBLATE_URL}/api"
 TOKEN="${WEBLATE_TOKEN:?Set WEBLATE_TOKEN to your Weblate API token}"
 
-PROJECT_NAME="BookLore"
-PROJECT_SLUG="booklore"
+PROJECT_NAME="Trove"
+PROJECT_SLUG="trove"
 PROJECT_WEB="https://github.com/X2-Consult/trove"
 
 REPO_URL="https://github.com/X2-Consult/trove.git"

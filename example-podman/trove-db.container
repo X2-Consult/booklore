@@ -1,18 +1,18 @@
 [Unit]
-Description=BookLore Database Container Using PostgreSQL
+Description=Trove Database Container Using PostgreSQL
 
 [Container]
-ContainerName=booklore-db
+ContainerName=trove-db
 Image=docker.io/library/postgres:16-alpine
-Pod=booklore.pod
+Pod=trove.pod
 Pull=always
 
-Volume=booklore-db:/var/lib/postgresql/data
+Volume=trove-db:/var/lib/postgresql/data
 
 Environment=TZ=Etc/UTC
-Environment=POSTGRES_USER=booklore
-Secret=booklore_db_pass,type=env,target=POSTGRES_PASSWORD
-Environment=POSTGRES_DB=booklore
+Environment=POSTGRES_USER=trove
+Secret=trove_db_pass,type=env,target=POSTGRES_PASSWORD
+Environment=POSTGRES_DB=trove
 
 DropCapability=all
 AddCapability=CAP_CHOWN CAP_SETUID CAP_SETGID CAP_FOWNER

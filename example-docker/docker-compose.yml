@@ -1,13 +1,13 @@
 services:
-  booklore:
-    image: ghcr.io/x2-consult/booklore:latest
-    container_name: booklore
+  trove:
+    image: ghcr.io/x2-consult/trove:latest
+    container_name: trove
     environment:
       - USER_ID=1000  # Modify this if the volume's ownership is not root
       - GROUP_ID=1000 # Modify this if the volume's ownership is not root
       - TZ=Etc/UTC
-      - DATABASE_URL=jdbc:postgresql://postgres:5432/booklore # Only modify this if you're familiar with JDBC and your database setup
-      - DATABASE_USERNAME=booklore                          # Must match POSTGRES_USER defined in the postgres container
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/trove # Only modify this if you're familiar with JDBC and your database setup
+      - DATABASE_USERNAME=trove                          # Must match POSTGRES_USER defined in the postgres container
       - DATABASE_PASSWORD=your_secure_password              # Use a strong password; must match POSTGRES_PASSWORD defined in the postgres container
       - SWAGGER_ENABLED=false                               # Enable or disable Swagger UI (API docs). Set to 'true' to allow access; 'false' to block access (recommended for production).
       - FORCE_DISABLE_OIDC=false                            # Set to 'true' to force-disable OIDC and allow internal login, regardless of UI config
@@ -17,10 +17,10 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "6060:6060" # HostPort:ContainerPort — container port is 6060 by default (configurable via BOOKLORE_PORT env var)
+      - "6060:6060" # HostPort:ContainerPort — container port is 6060 by default (configurable via TROVE_PORT env var)
     volumes:
       - ./data:/app/data       # Application data (settings, metadata, cache, etc.). Persist this folder to retain your library state across container restarts.
-      - ./books:/books         # Primary book library folder. Mount your collection here so BookLore can access and organize your books.
+      - ./books:/books         # Primary book library folder. Mount your collection here so Trove can access and organize your books.
       - ./bookdrop:/bookdrop   # BookDrop folder. Files placed here are automatically detected and prepared for import.
     healthcheck:
       test: wget -q -O - http://localhost:6060/api/v1/healthcheck
@@ -35,14 +35,14 @@ services:
     container_name: postgres
     environment:
       - TZ=Etc/UTC
-      - POSTGRES_DB=booklore
-      - POSTGRES_USER=booklore                     # Must match DATABASE_USERNAME defined in the booklore container
-      - POSTGRES_PASSWORD=your_secure_password      # Use a strong password; must match DATABASE_PASSWORD defined in the booklore container
+      - POSTGRES_DB=trove
+      - POSTGRES_USER=trove                     # Must match DATABASE_USERNAME defined in the trove container
+      - POSTGRES_PASSWORD=your_secure_password      # Use a strong password; must match DATABASE_PASSWORD defined in the trove container
     volumes:
       - ./config:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "booklore", "-d", "booklore" ]
+      test: [ "CMD", "pg_isready", "-U", "trove", "-d", "trove" ]
       interval: 5s
       timeout: 5s
       retries: 10

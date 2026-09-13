@@ -66,6 +66,6 @@ template: |
 
   ## 🐳 Docker Images
 
-  - **GitHub Container Registry:** `ghcr.io/x2-consult/booklore:v$RESOLVED_VERSION`
+  - **GitHub Container Registry:** `ghcr.io/x2-consult/trove:v$RESOLVED_VERSION`
 
   **Full Changelog**: https://github.com/X2-Consult/trove/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

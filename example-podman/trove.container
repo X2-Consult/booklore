@@ -1,25 +1,25 @@
 [Unit]
-Description=booklore container
-Requires=booklore-db.container
-After=booklore-db.container
+Description=trove container
+Requires=trove-db.container
+After=trove-db.container
 
 [Container]
-ContainerName=booklore
-Image=ghcr.io/x2-consult/booklore:latest
-Pod=booklore.pod
+ContainerName=trove
+Image=ghcr.io/x2-consult/trove:latest
+Pod=trove.pod
 AutoUpdate=registry
 Pull=always
 
-Volume=booklore-data:/app/data
+Volume=trove-data:/app/data
 # note the :z is important for selinux systems
 # Volume=YOUR MOUNTS:/books:z
 # Volume=YOUR MOUNTS:/bookdrop:z
 
 
 Environment=TZ=Etc/UTC
-Secret=booklore_db_pass,type=env,target=DATABASE_PASSWORD
-Environment=DATABASE_URL=jdbc:postgresql://localhost:5432/booklore
-Environment=DATABASE_USERNAME=booklore
+Secret=trove_db_pass,type=env,target=DATABASE_PASSWORD
+Environment=DATABASE_URL=jdbc:postgresql://localhost:5432/trove
+Environment=DATABASE_USERNAME=trove
 HealthCmd=wget -q -O - http://localhost:6060/api/v1/healthcheck
 HealthInterval=1m
 HealthRetries=5

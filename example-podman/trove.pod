@@ -1,7 +1,7 @@
 [Unit]
-Description=BookLore Pod
+Description=Trove Pod
 After=network-online.target
 
 [Pod]
-PodName=booklore
+PodName=trove
 PublishPort=6060:6060

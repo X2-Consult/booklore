@@ -258,13 +258,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/x2-consult/booklore:${{ env.image_tag }}
+            ghcr.io/x2-consult/trove:${{ env.image_tag }}
           build-args: |
             APP_VERSION=${{ env.image_tag }}
             APP_REVISION=${{ github.sha }}
           cache-from: |
             type=gha
-            type=registry,ref=ghcr.io/x2-consult/booklore:buildcache
+            type=registry,ref=ghcr.io/x2-consult/trove:buildcache
           cache-to: |
             type=gha,mode=max
-            type=registry,ref=ghcr.io/x2-consult/booklore:buildcache,mode=max
+            type=registry,ref=ghcr.io/x2-consult/trove:buildcache,mode=max

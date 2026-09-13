@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # =======================
-# Multi-arch Docker Build & Push for Booklore
+# Multi-arch Docker Build & Push for Trove
 # =======================
 
 # Ensure a version/tag is passed
@@ -14,9 +14,9 @@ fi
 
 VERSION="$1"
 
-IMAGE_REF="ghcr.io/x2-consult/booklore:$VERSION"
+IMAGE_REF="ghcr.io/x2-consult/trove:$VERSION"
 
-echo "Building Booklore App with multi-arch version: $VERSION"
+echo "Building Trove App with multi-arch version: $VERSION"
 echo "Target registry image: $IMAGE_REF"
 
 # Ensure Docker Buildx builder exists and is used

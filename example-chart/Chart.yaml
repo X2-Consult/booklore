@@ -1,5 +1,5 @@
 apiVersion: v2
-name: booklore
+name: trove
 description: A Helm chart for [Trove](https://github.com/X2-Consult/trove)
 
 # A chart can be either an 'application' or a 'library' chart.

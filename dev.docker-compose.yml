@@ -6,9 +6,9 @@ services:
       - "${BACKEND_PORT:-6060}:6060"
       - "127.0.0.1:${REMOTE_DEBUG_PORT:-5005}:5005"
     environment:
-      - DATABASE_URL=jdbc:postgresql://backend_db:5432/booklore
-      - DATABASE_USERNAME=booklore
-      - DATABASE_PASSWORD=booklore
+      - DATABASE_URL=jdbc:postgresql://backend_db:5432/trove
+      - DATABASE_USERNAME=trove
+      - DATABASE_PASSWORD=trove
       - REMOTE_DEBUG_ENABLED=true
       - ALLOWED_ORIGINS=http://localhost:4200
     stdin_open: true
@@ -31,13 +31,13 @@ services:
       - backend_db:/var/lib/postgresql/data
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=booklore
-      - POSTGRES_USER=booklore
-      - POSTGRES_PASSWORD=booklore
+      - POSTGRES_DB=trove
+      - POSTGRES_USER=trove
+      - POSTGRES_PASSWORD=trove
     ports:
       - "${DB_PORT:-3366}:5432"
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "booklore", "-d", "booklore" ]
+      test: [ "CMD", "pg_isready", "-U", "trove", "-d", "trove" ]
       interval: 10s
       timeout: 5s
       retries: 5
