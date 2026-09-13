@@ -93,9 +93,6 @@ class FfprobeServiceTest {
         String osArch = System.getProperty("os.arch").toLowerCase();
 
         if (osName.contains("mac") || osName.contains("darwin")) {
-            if (osArch.contains("arm") || osArch.contains("aarch64")) {
-                return "ffprobe-darwin-arm64";
-            }
             return "ffprobe-darwin-64";
         } else if (osName.contains("linux")) {
             if (osArch.contains("arm64") || osArch.contains("aarch64")) {

@@ -1,15 +1,15 @@
 package org.booklore.service.kobo;
 
 import org.booklore.util.FileService;
+import org.booklore.util.ToolBinaries;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -19,7 +19,9 @@ public class KepubConversionService {
     @Autowired
     private FileService fileService;
 
-    private static final String KEPUBIFY_GITHUB_BASE_URL = "https://github.com/booklore-app/booklore-tools/raw/main/kepubify/";
+    // kepubify's own releases (github.com/pgaskin/kepubify). Booklore fetched byte-identical copies
+    // from booklore-app/booklore-tools, so binaries already cached under these names are kept.
+    private static final String KEPUBIFY_RELEASE_URL = "https://github.com/pgaskin/kepubify/releases/download/v4.0.4/";
 
     private static final String BIN_DARWIN_ARM64 = "kepubify-darwin-arm64";
     private static final String BIN_DARWIN_X64 = "kepubify-darwin-64bit";
@@ -27,6 +29,14 @@ public class KepubConversionService {
     private static final String BIN_LINUX_X86 = "kepubify-linux-32bit";
     private static final String BIN_LINUX_ARM = "kepubify-linux-arm";
     private static final String BIN_LINUX_ARM64 = "kepubify-linux-arm64";
+
+    private static final Map<String, String> SHA256 = Map.of(
+            BIN_DARWIN_ARM64, "6467d44439ee899113c7f710b509ef9e5ce65e8df711c85192b9ea5b683594b7",
+            BIN_DARWIN_X64, "851afab0b83ecaf11f6965c901483eed3e74a6b41a3ab0a68f7321bc48bac4a3",
+            BIN_LINUX_X64, "37d7628d26c5c906f607f24b36f781f306075e7073a6fe7820a751bb60431fc5",
+            BIN_LINUX_X86, "3365a848ce06d43fca8f1999eb69c6c8e0e20a56b6b8658a8466b9726adef0f5",
+            BIN_LINUX_ARM, "07f23275c4e674093443f01a591aa0980b0b87dbb0a10986d5001e9d56b0e1e7",
+            BIN_LINUX_ARM64, "5a15b8f6f6a96216c69330601bca29638cfee50f7bf48712795cff88ae2d03a3");
 
     public File convertEpubToKepub(File epubFile, File tempDir, boolean forceEnableHyphenation) throws IOException, InterruptedException {
         validateInputs(epubFile);
@@ -45,31 +55,19 @@ public class KepubConversionService {
     }
 
     private Path setupKepubifyBinary() throws IOException {
-        String binaryName = getKepubifyBinaryName();
-        String toolsDirPath = fileService.getToolsKepubifyPath();
-        Path toolsDir = Paths.get(toolsDirPath);
-        if (!Files.exists(toolsDir)) {
-            Files.createDirectories(toolsDir);
+        try {
+            String binaryName = getKepubifyBinaryName();
+            String url = KEPUBIFY_RELEASE_URL + binaryName;
+            return ToolBinaries.ensureInstalled(Paths.get(fileService.getToolsKepubifyPath()), binaryName,
+                    new ToolBinaries.Asset(url, SHA256.get(binaryName), null));
+        } catch (IllegalStateException | IOException e) {
+            Path onPath = ToolBinaries.findOnPath("kepubify");
+            if (onPath == null) {
+                throw e instanceof IOException io ? io : new IOException(e.getMessage(), e);
+            }
+            log.warn("Couldn't install the pinned kepubify ({}), using {} from the PATH", e.getMessage(), onPath);
+            return onPath;
         }
-        Path binaryPath = toolsDir.resolve(binaryName);
-
-        if (!Files.exists(binaryPath)) {
-            String downloadUrl = KEPUBIFY_GITHUB_BASE_URL + binaryName;
-            log.info("Downloading kepubify binary '{}' from {}", binaryName, downloadUrl);
-            try (InputStream in = java.net.URI.create(downloadUrl).toURL().openStream()) {
-                Files.copy(in, binaryPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            if (!binaryPath.toFile().setExecutable(true)) {
-                log.warn("Failed to set executable permission for '{}'", binaryPath.toAbsolutePath());
-            }
-            log.info("Downloaded kepubify binary to {}", binaryPath.toAbsolutePath());
-        } else {
-            if (!binaryPath.toFile().setExecutable(true)) {
-                log.warn("Failed to set executable permission for '{}'", binaryPath.toAbsolutePath());
-            }
-            log.debug("Using existing kepubify binary at {}", binaryPath.toAbsolutePath());
-        }
-        return binaryPath;
     }
 
     private String getKepubifyBinaryName() {
