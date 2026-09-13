@@ -313,6 +313,7 @@ move_unit() { # $1 = old service name, $2 = new service name
   fi
   $SUDO $SYSTEMCTL disable "$1" >/dev/null 2>&1 || true
   $SUDO rm -rf "$old" "$old.d"
+  $SUDO $SYSTEMCTL reset-failed "$1" >/dev/null 2>&1 || true  # a stopped gradlew can leave it marked failed
 }
 step_units() {
   log "Replacing services: $OLD_API -> $NEW_API$($HAS_UI && echo ", $OLD_UI -> $NEW_UI")..."

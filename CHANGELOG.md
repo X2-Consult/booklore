@@ -5,6 +5,49 @@ the git commit history (which is the authoritative record of *exactly* what
 changed, line by line — see `git log`). This file tracks the *why* and the
 bigger picture, updated as we go.
 
+## 2026-09-13 — Renamed to Trove
+
+### Changed
+- **The project is now Trove** (*Your library. Your server. Your books.*),
+  at `github.com/X2-Consult/trove`. New logo, favicons, app icons and header
+  wordmark; every translation, email, OPDS title, log line and doc page says
+  Trove. Code names stay as they were (`org.booklore`, `booklore-api`,
+  `booklore-ui`) so fixes from other BookLore forks still port cleanly.
+- **Install layout** — new native installs use `/opt/trove`, `/srv/trove`,
+  `/etc/trove/trove.env`, a `trove` database and role, and `trove` /
+  `trove-ui` services. The Docker image is `ghcr.io/x2-consult/trove`.
+  `TROVE_*` environment variables replace `BOOKLORE_*`, which still work.
+- **Login tokens** are issued as `trove`; tokens issued as `booklore` stay
+  valid, so nobody is signed out by the upgrade. Kobo and KOReader devices
+  keep syncing without re-pairing.
+- **kepubify and ffprobe** now download from their own upstream releases,
+  each checked against a pinned SHA-256 before it's run.
+
+### Added
+- **`scripts/migrate-to-trove.sh`** moves a native BookLore install to the
+  Trove layout: checkout, data, settings, database, services (with drop-ins
+  such as JVM settings), the in-app update rule, stored library paths and
+  the git remote. `--dry-run` shows the plan; it backs everything up first,
+  undoes itself if a step fails, and `--rollback` restores the old layout.
+  `deploy.sh` keeps updating installs that haven't migrated yet.
+
+## 2026-09-04 / 2026-09-13 — Security, memory and metadata
+
+### Changed
+- **Security fixes ported from Grimmory** — books opened in the reader can
+  no longer reach the login token; refresh tokens can't be used as access
+  tokens; cover downloads from user-supplied URLs can't reach this server
+  or the LAN; KOReader passwords compare in constant time; several OPDS,
+  Kobo and task access-control gaps are closed; error messages and logs no
+  longer leak internals.
+- **Lower memory use** — Shenandoah compact GC settings that hand unused
+  heap back to the OS, capped PDF render resolution, and closed file
+  streams during scans.
+- **Metadata fetching** — Amazon and GoodReads pages load in a headless
+  browser on native installs, with request spacing and cool-downs, so bulk
+  fetches get past bot checks; GoodReads series names and ASINs, and Google
+  Books rate limits, are handled properly.
+
 ## 2026-08-01 / 2026-08-02
 
 ### Added
