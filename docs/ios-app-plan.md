@@ -127,7 +127,7 @@ If nothing suitable turns up, proceed with the from-scratch plan below.
 
 ## Open items / decisions still needed
 
-- Repo location: separate repo suggested (`X2-Consult/booklore-ios` or
+- Repo location: separate repo suggested (`X2-Consult/trove-ios` or
   similar) — different toolchain entirely (Swift/Xcode) from this monorepo
 - Minimum iOS version: default suggestion is iOS 17+ (matches the test
   device already in use)

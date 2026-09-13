@@ -252,8 +252,8 @@ export class AppMenuComponent implements OnInit {
   getVersionUrl(version: string | undefined): string {
     if (!version) return '#';
     return version.startsWith('v')
-      ? `https://github.com/X2-Consult/booklore/releases/tag/${version}`
-      : `https://github.com/X2-Consult/booklore/commit/${version}`;
+      ? `https://github.com/X2-Consult/trove/releases/tag/${version}`
+      : `https://github.com/X2-Consult/trove/commit/${version}`;
   }
 
   isSemanticVersion(version: string | undefined): boolean {

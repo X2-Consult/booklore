@@ -68,4 +68,4 @@ template: |
 
   - **GitHub Container Registry:** `ghcr.io/x2-consult/booklore:v$RESOLVED_VERSION`
 
-  **Full Changelog**: https://github.com/X2-Consult/booklore/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+  **Full Changelog**: https://github.com/X2-Consult/trove/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

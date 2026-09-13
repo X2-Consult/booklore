@@ -34,7 +34,7 @@ Thanks for your interest in contributing to Booklore! Whether you're fixing bugs
 
 ## Before You Start
 
-> **Issue first, PR second.** Every pull request must be linked to an approved issue. If you want to work on something, [open an issue](https://github.com/X2-Consult/booklore/issues/new) (or find an existing one) and wait for a maintainer to approve it before writing code. PRs submitted without a linked, approved issue will be closed.
+> **Issue first, PR second.** Every pull request must be linked to an approved issue. If you want to work on something, [open an issue](https://github.com/X2-Consult/trove/issues/new) (or find an existing one) and wait for a maintainer to approve it before writing code. PRs submitted without a linked, approved issue will be closed.
 
 This protects both your time and ours. It ensures that the work is actually wanted and that you're heading in the right direction before you invest effort.
 
@@ -50,8 +50,8 @@ This protects both your time and ours. It ensures that the work is actually want
 
 Not sure where to begin? Look for issues labeled:
 
-- [`good first issue`](https://github.com/X2-Consult/booklore/labels/good%20first%20issue) - small, well-scoped tasks ideal for newcomers
-- [`help wanted`](https://github.com/X2-Consult/booklore/labels/help%20wanted) - tasks where maintainers would appreciate a hand
+- [`good first issue`](https://github.com/X2-Consult/trove/labels/good%20first%20issue) - small, well-scoped tasks ideal for newcomers
+- [`help wanted`](https://github.com/X2-Consult/trove/labels/help%20wanted) - tasks where maintainers would appreciate a hand
 
 ---
 
@@ -59,12 +59,12 @@ Not sure where to begin? Look for issues labeled:
 
 ### Fork and Clone
 
-First, [fork the repository](https://github.com/X2-Consult/booklore/fork) on GitHub, then clone your fork locally:
+First, [fork the repository](https://github.com/X2-Consult/trove/fork) on GitHub, then clone your fork locally:
 
 ```bash
 git clone https://github.com/<your-username>/booklore.git
 cd booklore
-git remote add upstream https://github.com/X2-Consult/booklore.git
+git remote add upstream https://github.com/X2-Consult/trove.git
 ```
 
 ### Keep Your Fork in Sync
@@ -325,7 +325,7 @@ We've seen a sharp increase in AI-generated PRs where the contributor clearly ne
 
 ## Reporting Bugs
 
-1. **Search [existing issues](https://github.com/X2-Consult/booklore/issues)** to avoid duplicates.
+1. **Search [existing issues](https://github.com/X2-Consult/trove/issues)** to avoid duplicates.
 2. **Open a new issue** with the `bug` label including:
    - Clear, descriptive title (e.g., "Book import fails with PDF files over 100MB")
    - Steps to reproduce
@@ -354,7 +354,7 @@ Environment: Chrome 120, macOS 14.2, Booklore 1.2.0
 
 ## Community & Support
 
-- **GitHub Issues:** [Report bugs or request features](https://github.com/X2-Consult/booklore/issues)
+- **GitHub Issues:** [Report bugs or request features](https://github.com/X2-Consult/trove/issues)
 
 ---
 

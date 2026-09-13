@@ -21,7 +21,7 @@ public class VersionService {
     @Value("${app.version:unknown}")
     String appVersion;
 
-    private static final String GITHUB_REPO = "X2-Consult/booklore";
+    private static final String GITHUB_REPO = "X2-Consult/trove";
     private static final String BASE_URI = "https://api.github.com/repos/" + GITHUB_REPO;
     private static final int MAX_RELEASES = 15;
     private static final RestClient REST_CLIENT = RestClient.builder()

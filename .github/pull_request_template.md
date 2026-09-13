@@ -4,7 +4,7 @@
 
 **Linked Issue:** Fixes #<!-- issue number -->
 
-> **Required.** Every PR must reference an approved issue. If no issue exists, [open one](https://github.com/X2-Consult/booklore/issues/new) and wait for maintainer approval before submitting a PR. Unsolicited PRs without a linked issue will be closed.
+> **Required.** Every PR must reference an approved issue. If no issue exists, [open one](https://github.com/X2-Consult/trove/issues/new) and wait for maintainer approval before submitting a PR. Unsolicited PRs without a linked issue will be closed.
 
 ## 🏷️ Type of Change
 
