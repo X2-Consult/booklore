@@ -81,7 +81,7 @@ DATABASE_URL=jdbc:postgresql://postgres:5432/trove
 DB_USER=trove
 DB_PASSWORD=ChangeMe_TroveApp_2026!
 
-# Storage: LOCAL (default) or NETWORK (disables file operations, see Network Storage section below)
+# Storage: LOCAL (default), or NETWORK to stop Trove ever modifying book files (see Network Storage below)
 DISK_TYPE=LOCAL
 
 # PostgreSQL
@@ -182,12 +182,28 @@ proxy with a Let's Encrypt certificate. The app lives in `/opt/trove`, its data 
 
 ---
 
-## ⚠️ Network Storage (NAS / NFS / SMB / CIFS)
+## 🗄️ Network Storage (NAS / NFS / SMB)
 
-> [!CAUTION]
-> Trove's file operations (metadata writing, file renaming, file organization) are built for **local file systems only**. Network-attached storage (NAS, NFS, SMB/CIFS mounts, cloud-backed FUSE, etc.) is **unsupported and untested**. Mount options, network latency, caching, and filesystem semantics are all outside Trove's control and can cause silent file corruption, incomplete writes, missing files, and other unpredictable behavior. **Issues related to network storage will be closed without investigation.**
+Trove works with libraries on a NAS or other network share. Each library folder is checked when it's
+registered: if it's on NFS, SMB/CIFS or a similar network filesystem, the library settings show a
+**Network share** badge next to it, and Trove adjusts how it treats that folder.
 
-If your book files live on network storage, set `DISK_TYPE=NETWORK` in your `.env` file. This puts Trove into **network storage mode**, which disables all file write and reorganization features. Metadata is stored in the database only and your files are never modified. This is the only supported configuration for network storage.
+- **Books are never written in place.** When Trove writes metadata into a book, imports from BookDrop,
+  or organises files, it builds the new file locally, checks it's a sound EPUB, PDF, comic or audiobook,
+  copies it onto the share, reads it back to verify it byte for byte, and only then swaps it in. If the
+  connection drops part way, the original stays as it was, and the copy is retried.
+- **New books are found by checking the folder**, every 60 seconds by default (`NETWORK_POLL_SECONDS`),
+  because shares don't announce files added from other machines. A share that goes offline is left
+  alone rather than treated as deleted.
+- **File names stay portable.** Characters that SMB and Windows reject (`: ? * " < > |`), trailing spaces
+  and reserved names such as `CON` are avoided, and renames that only change upper or lower case work on
+  case-insensitive shares.
+
+This has been tested against a real SMB share, including cutting the connection in the middle of a
+large copy. NFS support uses the same code but hasn't been tested on real hardware yet.
+
+If you'd rather Trove never modifies your files at all, set `DISK_TYPE=NETWORK`. Trove then keeps
+metadata in its database only and turns off writing to files, renaming and reorganising.
 
 ---
 

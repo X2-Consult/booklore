@@ -57,7 +57,7 @@ DB_USER=trove
 DB_PASSWORD=ChangeMe_TroveApp_2026!
 POSTGRES_DB=trove
 
-# Storage: LOCAL (default) or NETWORK (NAS/NFS/SMB; disables file writes)
+# Storage: LOCAL (default), or NETWORK to stop Trove ever modifying book files
 DISK_TYPE=LOCAL</code></pre>
 <p><strong>Change the password before you start.</strong> Set <code>APP_USER_ID</code> and <code>APP_GROUP_ID</code> to the owner of your folders (<code>id -u</code>, <code>id -g</code>).</p>
 <h3 id="docker-compose">Step 3: Create <code>docker-compose.yml</code></h3>
