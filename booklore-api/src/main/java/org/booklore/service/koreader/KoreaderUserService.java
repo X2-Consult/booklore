@@ -56,14 +56,14 @@ public class KoreaderUserService {
     public KoreaderUser getUser() {
         Long id = authService.getAuthenticatedUser().getId();
         KoreaderUserEntity user = koreaderUserRepository.findByBookLoreUserId(id)
-                .orElseThrow(() -> ApiError.GENERIC_NOT_FOUND.createException("Koreader user not found for BookLore user ID: " + id));
+                .orElseThrow(() -> ApiError.GENERIC_NOT_FOUND.createException("KOReader user not found for Trove user ID: " + id));
         return koreaderUserMapper.toDto(user);
     }
 
     public void toggleSync(boolean enabled) {
         Long id = authService.getAuthenticatedUser().getId();
         KoreaderUserEntity user = koreaderUserRepository.findByBookLoreUserId(id)
-                .orElseThrow(() -> ApiError.GENERIC_NOT_FOUND.createException("Koreader user not found for BookLore user ID: " + id));
+                .orElseThrow(() -> ApiError.GENERIC_NOT_FOUND.createException("KOReader user not found for Trove user ID: " + id));
         user.setSyncEnabled(enabled);
         koreaderUserRepository.save(user);
     }
@@ -71,7 +71,7 @@ public class KoreaderUserService {
     public void toggleSyncProgressWithBooklore(boolean enabled) {
         Long id = authService.getAuthenticatedUser().getId();
         KoreaderUserEntity user = koreaderUserRepository.findByBookLoreUserId(id)
-                .orElseThrow(() -> ApiError.GENERIC_NOT_FOUND.createException("Koreader user not found for BookLore user ID: " + id));
+                .orElseThrow(() -> ApiError.GENERIC_NOT_FOUND.createException("KOReader user not found for Trove user ID: " + id));
         user.setSyncWithBookloreReader(enabled);
         koreaderUserRepository.save(user);
     }

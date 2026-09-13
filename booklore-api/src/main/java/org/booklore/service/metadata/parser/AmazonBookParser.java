@@ -907,7 +907,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             Connection.Response response = connection.execute();
             String body = response.body();
             if (isBotChallenge(body)) {
-                log.info("Amazon returned a bot-check page instead of content. Please note: this is NOT a Booklore bug. Action required: Update cookies or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
+                log.info("Amazon returned a bot-check page instead of content. Please note: this is NOT a Trove bug. Action required: Update cookies or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
                 providerGuard.markBlocked(MetadataProvider.Amazon, amazonCookie);
                 throw new AmazonAntiScrapingException("Amazon bot challenge");
             }
@@ -915,12 +915,12 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
             return Jsoup.parse(body, url);
         } catch (HttpStatusException e) {
             if (e.getStatusCode() == 503) {
-                log.info("Amazon service unavailable (503). Please note: this is NOT a Booklore bug. Likely causes include: rate-limiting or failed captcha. Action required: Update cookies or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
+                log.info("Amazon service unavailable (503). Please note: this is NOT a Trove bug. Likely causes include: rate-limiting or failed captcha. Action required: Update cookies or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
                 providerGuard.markBlocked(MetadataProvider.Amazon, amazonCookie);
                 throw new AmazonAntiScrapingException("Amazon 503 Anti-Scraping");
             }
             if (e.getStatusCode() == 500) {
-                log.info("Amazon internal server error (500). Please note: this is NOT a Booklore bug. Likely causes include: temporary server issues or anti-bot measures. Action required: Retry later or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
+                log.info("Amazon internal server error (500). Please note: this is NOT a Trove bug. Likely causes include: temporary server issues or anti-bot measures. Action required: Retry later or select an alternative metadata source in the Metadata 2 UI. URL: {}", url);
                 throw new AmazonAntiScrapingException("Amazon 500 Internal Server Error");
             }
             log.error("HTTP error fetching URL. Status={}, URL=[{}]", e.getStatusCode(), url, e);
@@ -933,7 +933,7 @@ public class AmazonBookParser implements BookParser, DetailedMetadataProvider {
 
     private Document checkBrowserPage(BrowserPageFetcher.FetchedPage page, String url, String amazonCookie) {
         if (!page.ready() || isBotChallenge(page.html()) || page.status() == 503) {
-            log.info("Amazon kept serving a bot check (or 503) to the headless browser. Please note: this is NOT a Booklore bug. URL: {}", url);
+            log.info("Amazon kept serving a bot check (or 503) to the headless browser. Please note: this is NOT a Trove bug. URL: {}", url);
             providerGuard.markBlocked(MetadataProvider.Amazon, amazonCookie);
             throw new AmazonAntiScrapingException("Amazon bot challenge (browser)");
         }

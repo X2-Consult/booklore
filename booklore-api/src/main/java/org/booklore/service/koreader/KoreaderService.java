@@ -61,7 +61,7 @@ public class KoreaderService {
                 ? tryProgressFromBookloreReader(bookHash, authDetails.getBookLoreUserId(), bookFile, progress)
                 : null;
         if (fromBookloreReader != null) {
-            log.info("getProgress: serving progress from BookLore reader (newer than last KOReader sync) for userId={} bookHash={}",
+            log.info("getProgress: serving progress from the Trove reader (newer than last KOReader sync) for userId={} bookHash={}",
                     authDetails.getBookLoreUserId(), bookHash);
             return fromBookloreReader;
         }
@@ -79,14 +79,14 @@ public class KoreaderService {
                 .document(bookHash)
                 .progress(progress.getKoreaderProgress())
                 .percentage(progress.getKoreaderProgressPercent())
-                .device("Trove")  // display name KOReader shows; device_id stays the identity devices compare
+                .device("Trove")  // the name KOReader shows; it only compares device_id with its own, so the old value is harmless
                 .device_id("BookLore")
                 .build();
     }
 
     /**
-     * When "sync with BookLore reader" is on, KOReader should pull whichever position is
-     * more recent: its own last push, or progress made through BookLore's own web reader
+     * When "sync with the Trove reader" is on, KOReader should pull whichever position is
+     * more recent: its own last push, or progress made through Trove's own web reader
      * for this exact file. The two directions write into different columns (koreaderProgress
      * vs the file-level position table) with no shared source of truth, so without this,
      * GET /syncs/progress could only ever echo back what KOReader itself last pushed - a
@@ -123,7 +123,7 @@ public class KoreaderService {
                 .document(bookHash)
                 .progress(koreaderStyleProgress)
                 .percentage(fractionOf(fileProgress.getProgressPercent()))
-                .device("Trove")  // display name KOReader shows; device_id stays the identity devices compare
+                .device("Trove")  // the name KOReader shows; it only compares device_id with its own, so the old value is harmless
                 .device_id("BookLore")
                 .build();
     }
@@ -269,7 +269,7 @@ public class KoreaderService {
                 userProgress.setEpubProgress(cfi);
                 userProgress.setEpubProgressPercent(rounded);
 
-                log.info("Converted xpointer to CFI for BookLore reader sync: {}", cfi);
+                log.info("Converted xpointer to CFI for Trove reader sync: {}", cfi);
             } catch (Exception e) {
                 log.warn("Failed to convert xpointer to CFI: {}", e.getMessage());
             }
