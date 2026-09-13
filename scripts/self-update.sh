@@ -26,7 +26,8 @@ fi
 echo "[self-update] $(date -Is) starting in $REPO_DIR"
 
 # deploy.sh does the actual work (fetch tags, pull, rebuild per INSTALL_MODE,
-# stamp APP_VERSION, restart the service). --skip-pg-check avoids the one
+# stamp APP_VERSION, restart the service - trove, or booklore-api on an install
+# not yet migrated). --skip-pg-check avoids the one
 # postgres-sudo step, which the service account is not granted.
 bash "$REPO_DIR/deploy.sh" --skip-pg-check
 

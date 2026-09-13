@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #
-# Apply code changes to the native (non-Docker) local BookLore install set up
+# Apply code changes to the native (non-Docker) local Trove install set up
 # by install.sh: pulls latest code, reinstalls frontend deps if needed, and
 # restarts the app.
 #
 # In production mode (single jar, embeds the frontend): rebuilds the Angular
-# app and the backend jar, then restarts booklore-api only.
+# app and the backend jar, then restarts the trove service only.
 # In dev mode: a fresh gradlew bootRun recompiles the backend and lets Flyway
 # apply any new migrations against Postgres on boot, so restarting
-# booklore-api / booklore-ui is enough - no separate build step needed.
+# trove / trove-ui is enough - no separate build step needed.
+#
+# A Booklore install that hasn't been through scripts/migrate-to-trove.sh yet is
+# still deployed under its old names (/etc/booklore, booklore-api, booklore-ui).
 #
 # Usage:
 #   ./deploy.sh                 # git pull, then restart
@@ -19,7 +22,6 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="/etc/booklore/booklore.env"
 SKIP_PULL=false
 SKIP_PG_CHECK=false
 for arg in "$@"; do
@@ -32,6 +34,20 @@ done
 
 log() { echo ">> $*"; }
 warn() { echo ">> WARNING: $*" >&2; }
+
+if [ -f /etc/trove/trove.env ]; then
+  ENV_FILE="/etc/trove/trove.env"
+  API_SERVICE="trove"
+  UI_SERVICE="trove-ui"
+elif [ -f /etc/booklore/booklore.env ]; then
+  ENV_FILE="/etc/booklore/booklore.env"
+  API_SERVICE="booklore-api"
+  UI_SERVICE="booklore-ui"
+  warn "This is still a Booklore install; scripts/migrate-to-trove.sh moves it to the Trove layout."
+else
+  echo ">> ERROR: no /etc/trove/trove.env - run ./install.sh first." >&2
+  exit 1
+fi
 
 # Stamp the running version into the systemd EnvironmentFile as APP_VERSION, which
 # application.yaml reads as `app.version` (${APP_VERSION:development}). Native installs
@@ -72,7 +88,7 @@ ensure_pg_stat_statements() {
   local db_url db_name
   db_url="$(grep -oP '(?<=^DATABASE_URL=jdbc:postgresql://).*' "$ENV_FILE" 2>/dev/null || true)"
   db_name="${db_url##*/}"
-  db_name="${db_name:-booklore}"
+  db_name="${db_name:-trove}"
 
   local preloaded
   preloaded="$(sudo -u postgres psql -tAc "SHOW shared_preload_libraries;" 2>/dev/null || true)"
@@ -172,11 +188,11 @@ if [ "$INSTALL_MODE" = "production" ]; then
   log "Building backend jar (embeds the Angular build)..."
   (cd "$REPO_DIR/booklore-api" && ./gradlew bootJar -x test)
 
-  log "Restarting booklore-api..."
-  sudo systemctl restart booklore-api
+  log "Restarting $API_SERVICE..."
+  sudo systemctl restart "$API_SERVICE"
 else
   log "Restarting services..."
-  sudo systemctl restart booklore-api booklore-ui
+  sudo systemctl restart "$API_SERVICE" "$UI_SERVICE"
 fi
 
 log "Waiting for backend to come up..."
@@ -189,12 +205,12 @@ for _ in $(seq 1 30); do
 done
 
 echo
-echo "--- booklore-api (last 20 lines) ---"
-journalctl -u booklore-api -n 20 --no-pager
+echo "--- $API_SERVICE (last 20 lines) ---"
+journalctl -u "$API_SERVICE" -n 20 --no-pager
 if [ "$INSTALL_MODE" != "production" ]; then
   echo
-  echo "--- booklore-ui (last 10 lines) ---"
-  journalctl -u booklore-ui -n 10 --no-pager
+  echo "--- $UI_SERVICE (last 10 lines) ---"
+  journalctl -u "$UI_SERVICE" -n 10 --no-pager
 fi
 echo
 if [ "$INSTALL_MODE" = "production" ]; then

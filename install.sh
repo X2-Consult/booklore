@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Native (non-Docker) local install for BookLore.
+# Native (non-Docker) local install for Trove.
 #
 # Sets up everything needed to run the backend and frontend directly on this
 # machine, backed by a local PostgreSQL database, managed as systemd
@@ -12,35 +12,41 @@
 # Once installed, the mode is remembered (stored in the credentials file) so
 # re-running this script or deploy.sh won't silently flip it.
 #
-# Relocates the checkout to /opt/booklore (standard FHS location for
+# Relocates the checkout to /opt/trove (standard FHS location for
 # third-party app code) if not already there. Optionally configures a
 # reverse proxy (Caddy or nginx+certbot, whichever is present) with a Let's
 # Encrypt certificate if you're hosting this publicly. Safe to re-run.
 #
 # Prerequisites: Ubuntu/Debian-like system with apt and systemd. Needs sudo
 # for: relocating to /opt, installing PostgreSQL/nginx/caddy/certbot if
-# missing, creating the booklore Postgres role/database, writing the
+# missing, creating the trove Postgres role/database, writing the
 # credentials file, and installing the systemd units + reverse proxy config.
 # You'll be prompted for your sudo password interactively where needed.
 #
 # Usage:
 #   ./install.sh
 #   INSTALL_MODE=production ./install.sh    # skip the mode prompt
-#   INSTALL_DIR=/custom/path ./install.sh   # override the /opt/booklore default
+#   INSTALL_DIR=/custom/path ./install.sh   # override the /opt/trove default
+#
+# A machine that already runs Booklore (/etc/booklore/booklore.env) is moved over with
+# scripts/migrate-to-trove.sh instead; this script refuses to set up a second, empty install.
 #   CADDYFILE=/path/to/Caddyfile ./install.sh  # override Caddyfile discovery
 #
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="${INSTALL_DIR:-/opt/booklore}"
+INSTALL_DIR="${INSTALL_DIR:-/opt/trove}"
 APP_USER="$(whoami)"
 APP_HOME="$HOME"
-DATA_DIR="${DATA_DIR:-/srv/booklore}"
+DATA_DIR="${DATA_DIR:-/srv/trove}"
 LEGACY_DATA_DIR="$APP_HOME/booklore-data"
-ENV_FILE="/etc/booklore/booklore.env"
-DB_NAME="booklore"
-DB_USER="booklore"
+ENV_FILE="/etc/trove/trove.env"
+BOOKLORE_ENV_FILE="/etc/booklore/booklore.env"
+DB_NAME="trove"
+DB_USER="trove"
+API_SERVICE="trove"
+UI_SERVICE="trove-ui"
 SDKMAN_DIR="$APP_HOME/.sdkman"
 JAVA_VERSION="25-tem"
 BACKEND_PORT=6060
@@ -49,7 +55,15 @@ FRONTEND_PORT=4200
 log()  { echo ">> $*"; }
 warn() { echo "!! $*" >&2; }
 
-# ─── 0. Relocate to /opt/booklore (idempotent) ─────────────────────────────
+# ─── 0. Existing Booklore install? Migrate it instead ───────────────────────
+if [ ! -f "$ENV_FILE" ] && { [ -f "$BOOKLORE_ENV_FILE" ] || [ -f /etc/systemd/system/booklore-api.service ]; }; then
+  warn "This machine already runs Booklore ($BOOKLORE_ENV_FILE)."
+  warn "Move it to Trove with scripts/migrate-to-trove.sh, which keeps your library, users and settings."
+  warn "Until then, ./deploy.sh keeps updating it as it is."
+  exit 1
+fi
+
+# ─── 0.5 Relocate to /opt/trove (idempotent) ───────────────────────────────
 if [ "$REPO_DIR" != "$INSTALL_DIR" ]; then
   if [ -e "$INSTALL_DIR" ]; then
     warn "$INSTALL_DIR already exists and this checkout is at $REPO_DIR - refusing to overwrite."
@@ -165,6 +179,7 @@ DATABASE_PASSWORD=${DB_PASSWORD}
 ALLOWED_ORIGINS=${ALLOWED_ORIGINS_VALUE}
 INSTALL_MODE=${INSTALL_MODE}
 APP_VERSION=${APP_VERSION_VALUE}
+TROVE_REPO_DIR=${REPO_DIR}
 EOF
 sudo chown "$APP_USER" "$ENV_FILE"
 sudo chmod 600 "$ENV_FILE"
@@ -202,9 +217,9 @@ fi
 log "Installing systemd services..."
 
 if [ "$INSTALL_MODE" = "production" ]; then
-  sudo tee /etc/systemd/system/booklore-api.service > /dev/null <<EOF
+  sudo tee "/etc/systemd/system/${API_SERVICE}.service" > /dev/null <<EOF
 [Unit]
-Description=BookLore (production, single jar - embeds the frontend)
+Description=Trove (production, single jar - embeds the frontend)
 After=network.target postgresql.service
 
 [Service]
@@ -227,18 +242,18 @@ WantedBy=multi-user.target
 EOF
 
   # No separate frontend service in production mode - it's embedded in the jar.
-  if [ -f /etc/systemd/system/booklore-ui.service ]; then
-    log "Removing leftover booklore-ui.service from a previous dev-mode install..."
-    sudo systemctl disable --now booklore-ui 2>/dev/null || true
-    sudo rm -f /etc/systemd/system/booklore-ui.service
+  if [ -f "/etc/systemd/system/${UI_SERVICE}.service" ]; then
+    log "Removing leftover ${UI_SERVICE}.service from a previous dev-mode install..."
+    sudo systemctl disable --now "$UI_SERVICE" 2>/dev/null || true
+    sudo rm -f "/etc/systemd/system/${UI_SERVICE}.service"
   fi
 
   sudo systemctl daemon-reload
-  sudo systemctl enable --now booklore-api
+  sudo systemctl enable --now "$API_SERVICE"
 else
-  sudo tee /etc/systemd/system/booklore-api.service > /dev/null <<EOF
+  sudo tee "/etc/systemd/system/${API_SERVICE}.service" > /dev/null <<EOF
 [Unit]
-Description=BookLore backend (dev, gradlew bootRun)
+Description=Trove backend (dev, gradlew bootRun)
 After=network.target postgresql.service
 
 [Service]
@@ -258,9 +273,9 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-  sudo tee /etc/systemd/system/booklore-ui.service > /dev/null <<EOF
+  sudo tee "/etc/systemd/system/${UI_SERVICE}.service" > /dev/null <<EOF
 [Unit]
-Description=BookLore frontend (dev, ng serve)
+Description=Trove frontend (dev, ng serve)
 After=network.target
 
 [Service]
@@ -277,14 +292,14 @@ WantedBy=multi-user.target
 EOF
 
   sudo systemctl daemon-reload
-  sudo systemctl enable --now booklore-api booklore-ui
+  sudo systemctl enable --now "$API_SERVICE" "$UI_SERVICE"
 fi
 
 # ─── 8.5 Passwordless restart for the in-app "Update now" button ───────────
 # Scoped to exactly the two restarts self-update.sh needs - nothing broader.
 SYSTEMCTL_BIN="$(command -v systemctl || echo /usr/bin/systemctl)"
-SUDOERS_FILE="/etc/sudoers.d/booklore"
-SUDOERS_LINE="${APP_USER} ALL=(root) NOPASSWD: ${SYSTEMCTL_BIN} restart booklore-api, ${SYSTEMCTL_BIN} restart booklore-ui"
+SUDOERS_FILE="/etc/sudoers.d/trove"
+SUDOERS_LINE="${APP_USER} ALL=(root) NOPASSWD: ${SYSTEMCTL_BIN} restart ${API_SERVICE}, ${SYSTEMCTL_BIN} restart ${UI_SERVICE}"
 log "Installing $SUDOERS_FILE (passwordless service restart for in-app updates)..."
 printf '%s\n' "$SUDOERS_LINE" | sudo tee "$SUDOERS_FILE" > /dev/null
 sudo chmod 0440 "$SUDOERS_FILE"
@@ -410,7 +425,7 @@ server {
     listen 80;
     server_name ${FQDN};
 
-    # --- Reverse-proxy settings BookLore needs (Kobo sync, in-app docs, OIDC) ---
+    # --- Reverse-proxy settings Trove needs (Kobo sync, in-app docs, OIDC) ---
     # Kobo sends very large headers during a sync; the default 4k-8k proxy
     # buffers reject them with "upstream sent too big header" (HTTP 502).
     client_max_body_size 1000M;
@@ -420,7 +435,7 @@ server {
     large_client_header_buffers 8 32k;
 
     # Forwarded headers, set once here and inherited by every location block.
-    # BookLore builds absolute URLs from these (Kobo download / library-sync
+    # Trove builds absolute URLs from these (Kobo download / library-sync
     # links, OIDC redirects). Missing X-Forwarded-Proto -> http:// URLs behind
     # an https site -> redirect loops.
     proxy_set_header Host \$host;
@@ -479,11 +494,11 @@ EOF
   if [ "$ORIGINS_CHANGED" = true ] && ! grep -q "$FQDN_ORIGIN" "$ENV_FILE"; then
     CURRENT_ORIGINS="$(grep -oP '(?<=^ALLOWED_ORIGINS=).*' "$ENV_FILE")"
     # sed -i writes a temp file in the same directory before renaming it over
-    # the original, which needs write access to /etc/booklore itself (root
+    # the original, which needs write access to /etc/trove itself (root
     # owned), not just the credentials file - hence sudo here.
     sudo sed -i "s#^ALLOWED_ORIGINS=.*#ALLOWED_ORIGINS=${CURRENT_ORIGINS},${FQDN_ORIGIN}#" "$ENV_FILE"
     log "Added ${FQDN_ORIGIN} to ALLOWED_ORIGINS, restarting backend..."
-    sudo systemctl restart booklore-api
+    sudo systemctl restart "$API_SERVICE"
   fi
 else
   log "No FQDN given, skipping reverse proxy setup (app stays on localhost only)."
@@ -494,13 +509,13 @@ echo
 if [ "$INSTALL_MODE" = "production" ]; then
   echo "  App: http://localhost:${BACKEND_PORT}$([ -n "$FQDN" ] && echo "  (or https://$FQDN)")  (frontend + API + WS, one process)"
   echo
-  echo "Check status:  systemctl status booklore-api"
-  echo "Tail logs:     journalctl -u booklore-api -f"
+  echo "Check status:  systemctl status ${API_SERVICE}"
+  echo "Tail logs:     journalctl -u ${API_SERVICE} -f"
 else
   echo "  Frontend: http://localhost:${FRONTEND_PORT}$([ -n "$FQDN" ] && echo "  (or https://$FQDN)")"
   echo "  Backend:  http://localhost:${BACKEND_PORT}"
   echo
-  echo "Check status:  systemctl status booklore-api booklore-ui"
-  echo "Tail logs:     journalctl -u booklore-api -f"
+  echo "Check status:  systemctl status ${API_SERVICE} ${UI_SERVICE}"
+  echo "Tail logs:     journalctl -u ${API_SERVICE} -f"
 fi
 echo "Apply changes: ${REPO_DIR}/deploy.sh"

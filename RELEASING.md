@@ -18,18 +18,18 @@ Two long-lived branches:
 This fast-forwards `master` to `origin/develop` and pushes it. The push triggers
 `.github/workflows/master-pipeline.yml`, which runs the test suite, computes the next
 version (patch bump by default — put `#minor` or `#major` in a commit subject to override),
-tags it, builds the jar + `ghcr.io/x2-consult/booklore` image, and drafts a GitHub release.
+tags it, builds the jar + `ghcr.io/x2-consult/trove` image, and drafts a GitHub release.
 
 ## Deploy to production
 
 On the production server (checked out on `master`):
 
 ```bash
-cd /opt/booklore && ./deploy.sh
+cd /opt/trove && ./deploy.sh
 ```
 
 `deploy.sh` pulls, rebuilds, stamps the running version (`git describe`) into
-`/etc/booklore/booklore.env` as `APP_VERSION`, and restarts the service. An admin can also
+`/etc/trove/trove.env` as `APP_VERSION`, and restarts the service. An admin can also
 trigger this from the app itself (sidebar → version → **Update now**).
 
 ## Hotfixes
