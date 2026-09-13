@@ -3,13 +3,16 @@ package org.booklore.service.monitoring;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.booklore.config.AppProperties;
 import org.booklore.model.dto.Library;
 import org.booklore.model.enums.BookFileExtension;
 import org.booklore.service.watcher.LibraryFileEventProcessor;
+import org.booklore.util.MountInfo;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,22 +27,63 @@ public class LibraryWatchService {
     private final LibraryFileEventProcessor eventProcessor;
     private final WatchService watchService;
     private final ExecutorService registrationExecutor;
+    private final long networkPollMillis;
 
     private final ConcurrentHashMap<Path, WatchEntry> watches = new ConcurrentHashMap<>();
     private final Map<Long, Boolean> libraryWatchStatus = new ConcurrentHashMap<>();
+    // Library folders on network shares are polled instead: inotify doesn't see changes made from
+    // other machines. The mount point each was found on, so polling pauses if the share goes away.
+    private final Map<Path, String> networkMountPoints = new ConcurrentHashMap<>();
+    private final NetworkFolderPoller networkPoller;
 
     private record WatchEntry(WatchKey key, long libraryId) {}
 
-    public LibraryWatchService(LibraryFileEventProcessor eventProcessor) throws IOException {
+    public LibraryWatchService(LibraryFileEventProcessor eventProcessor, AppProperties appProperties) throws IOException {
         this.eventProcessor = eventProcessor;
         this.watchService = FileSystems.getDefault().newWatchService();
         this.registrationExecutor = Executors.newSingleThreadExecutor(
                 Thread.ofVirtual().name("watch-registrar").factory());
+        this.networkPollMillis = Math.max(5, appProperties.getNetworkPollSeconds()) * 1000L;
+        this.networkPoller = new NetworkFolderPoller(eventProcessor::processEvent, this::isRelevantBookFile, this::isStillOnShare);
     }
 
     @PostConstruct
     public void start() {
         Thread.ofVirtual().name("watch-poll").start(this::pollLoop);
+        Thread.ofVirtual().name("network-folder-poll").start(this::networkPollLoop);
+    }
+
+    private void networkPollLoop() {
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                Thread.sleep(networkPollMillis);
+                networkPoller.pollAll();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (RuntimeException e) {
+                log.warn("Network folder poll failed: {}", e.getMessage());
+            }
+        }
+    }
+
+    private boolean isStillOnShare(Path root) {
+        String mountPoint = networkMountPoints.get(root);
+        return mountPoint != null && MountInfo.find(root)
+                .filter(MountInfo.Mount::isNetwork)
+                .map(mount -> mount.mountPoint().equals(mountPoint))
+                .orElse(false);
+    }
+
+    /** Starts polling {@code root} if it's on a network share; false if it's local. */
+    private boolean registerIfNetwork(Path root, long libraryId) {
+        Path normalized = root.toAbsolutePath().normalize();
+        var mount = MountInfo.find(normalized).filter(MountInfo.Mount::isNetwork);
+        if (mount.isEmpty()) {
+            return false;
+        }
+        networkMountPoints.put(normalized, mount.get().mountPoint());
+        networkPoller.register(normalized, libraryId);
+        return true;
     }
 
     private void pollLoop() {
@@ -127,6 +171,9 @@ public class LibraryWatchService {
         int[] count = {0};
         library.getPaths().forEach(libraryPath -> {
             Path rootPath = Paths.get(libraryPath.getPath());
+            if (Files.isDirectory(rootPath) && registerIfNetwork(rootPath, library.getId())) {
+                return;
+            }
             if (Files.isDirectory(rootPath)) {
                 try (Stream<Path> pathStream = Files.walk(rootPath)) {
                     pathStream.filter(Files::isDirectory).forEach(path -> {
@@ -152,12 +199,16 @@ public class LibraryWatchService {
         for (Path path : pathsToRemove) {
             unregisterPath(path);
         }
+        networkPoller.unregisterLibrary(libraryId);
 
         libraryWatchStatus.put(libraryId, false);
         log.debug("Unregistered library {} from monitoring", libraryId);
     }
 
     public synchronized boolean registerPath(Path path, long libraryId) {
+        if (networkPoller.isPolled(path)) {
+            return false; // covered by the network poller
+        }
         if (!Files.exists(path)) {
             log.warn("Cannot register path that does not exist: {}", path);
             return false;
@@ -213,6 +264,9 @@ public class LibraryWatchService {
         }
         try {
             log.debug("Registering library paths for libraryId {} at {}", libraryId, libraryRoot);
+            if (registerIfNetwork(libraryRoot, libraryId)) {
+                return;
+            }
             registerPath(libraryRoot, libraryId);
             try (var stream = Files.walk(libraryRoot)) {
                 stream.filter(Files::isDirectory)
@@ -229,7 +283,7 @@ public class LibraryWatchService {
     }
 
     public boolean isPathMonitored(Path path) {
-        return watches.containsKey(path.toAbsolutePath().normalize());
+        return watches.containsKey(path.toAbsolutePath().normalize()) || networkPoller.isPolled(path);
     }
 
     public boolean isLibraryMonitored(long libraryId) {
@@ -237,10 +291,12 @@ public class LibraryWatchService {
     }
 
     public Set<Path> getPathsForLibraries(Set<Long> libraryIds) {
-        return watches.entrySet().stream()
+        Set<Path> paths = watches.entrySet().stream()
                 .filter(e -> libraryIds.contains(e.getValue().libraryId()))
                 .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(HashSet::new));
+        paths.addAll(networkPoller.foldersForLibraries(libraryIds));
+        return paths;
     }
 
     public boolean waitForEventsDrained(Set<Long> libraryIds, long timeoutMs) {

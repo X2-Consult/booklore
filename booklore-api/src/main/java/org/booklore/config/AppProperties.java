@@ -29,6 +29,9 @@ public class AppProperties {
      */
     private String diskType = "LOCAL";
 
+    /** How often library folders on network shares are checked for added or removed books. */
+    private int networkPollSeconds = 60;
+
     public boolean isLocalStorage() {
         return "LOCAL".equalsIgnoreCase(diskType);
     }

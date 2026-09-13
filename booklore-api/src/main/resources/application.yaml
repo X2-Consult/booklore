@@ -25,6 +25,9 @@ app:
     groups-delimiter: ${REMOTE_AUTH_GROUPS_DELIMITER:\\s+}
   force-disable-oidc: ${FORCE_DISABLE_OIDC:false}
   disk-type: ${DISK_TYPE:LOCAL}
+  # Library folders on network shares (NFS, SMB) are checked for changes this often, since shares
+  # don't send change notifications for files added from other machines.
+  network-poll-seconds: ${NETWORK_POLL_SECONDS:60}
   # Cover and author-photo downloads from user-supplied URLs refuse to connect into these ranges
   # (checked on every hop, redirects included), so such a URL can't reach this server or the LAN.
   # Other outbound calls (metadata providers, OIDC, Kobo) are not filtered. List from Grimmory.

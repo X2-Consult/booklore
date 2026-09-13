@@ -29,7 +29,7 @@ class LibraryWatchServiceTest {
     @BeforeEach
     void setup() throws Exception {
         processor = mock(LibraryFileEventProcessor.class);
-        service = new LibraryWatchService(processor);
+        service = new LibraryWatchService(processor, new org.booklore.config.AppProperties());
     }
 
     @AfterEach
