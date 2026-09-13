@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Probe: can a real (headless) browser get past Amazon's and GoodReads' bot checks from this
-// server, where Booklore's plain Jsoup requests get challenged?
+// server, where Trove's plain Jsoup requests get challenged?
 //
-// For each sample book it fetches the same pages Booklore's metadata parsers use, three ways:
-//   http    - plain HTTP with Booklore's headers (the baseline; what Jsoup sees)
+// For each sample book it fetches the same pages Trove's metadata parsers use, three ways:
+//   http    - plain HTTP with Trove's headers (the baseline; what Jsoup sees)
 //   browser - headless Chromium, one session for the whole run so solved challenges carry over
 //   hybrid  - plain HTTP again, but sending the cookies the browser earned. If this works,
-//             Booklore only needs a browser to mint cookies, not to render every page.
+//             Trove only needs a browser to mint cookies, not to render every page.
 //
 // Setup (once, in any scratch directory -- the script resolves 'playwright' from the cwd):
 //   mkdir -p ~/bot-probe && cd ~/bot-probe
@@ -14,8 +14,8 @@
 //   npx playwright install chromium     # if Chromium won't start: sudo npx playwright install-deps chromium
 //
 // Run (from that directory):
-//   node /opt/booklore/scripts/metadata-bot-probe.mjs --amazon-domain com.au
-//   node /opt/booklore/scripts/metadata-bot-probe.mjs --modes browser --books 2 --dump ./dumps
+//   node scripts/metadata-bot-probe.mjs --amazon-domain com.au
+//   node scripts/metadata-bot-probe.mjs --modes browser --books 2 --dump ./dumps
 //   --save-cookies cookies.json writes the browser session's cookies out for other clients to try.
 //
 // It makes about 3 requests per book per mode, spaced 3-5s apart: ~45 requests for the defaults.
@@ -64,7 +64,7 @@ const GOODREADS_HEADERS = {
   'user-agent': CHROME_UA.replace('137', '131'),
 };
 
-// --- page classification: mirrors the checks in the Booklore parsers -----------------------
+// --- page classification: mirrors the checks in the Trove parsers -----------------------
 
 function classifyAmazon(status, html, kind) {
   if (status === 503) return 'BLOCKED_503';
